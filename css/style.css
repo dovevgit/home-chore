@@ -215,3 +215,11 @@ body.chatpage{padding-bottom:calc(88px + env(safe-area-inset-bottom))}
 .reqcard{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;background:#fff;border-radius:16px;padding:12px 14px;margin-bottom:8px;box-shadow:0 2px 6px rgba(31,41,55,.06)}
 .reqcard b{flex:1;font-size:17px}
 textarea{width:100%;min-height:80px;border:1.5px solid var(--field);border-radius:14px;padding:10px 14px;background:#fff}
+.reqcard.glow{background:linear-gradient(135deg,#FFF3C4,#FFD36B);border:2px solid #FFB020;animation:reqglow 1.8s ease-in-out infinite}
+@keyframes reqglow{0%,100%{box-shadow:0 0 6px 1px rgba(255,176,32,.55)}50%{box-shadow:0 0 18px 5px rgba(255,176,32,.95)}}
+@media (prefers-reduced-motion:reduce){.reqcard.glow{animation:none;box-shadow:0 0 12px 3px rgba(255,176,32,.8)}}
+
+.reqcard.alert{background:linear-gradient(135deg,#FFB020,#FF7A1A);color:#fff;animation:reqglow 1.6s ease-in-out infinite}
+.reqcard.alert svg{color:#fff}
+@keyframes reqglow{0%,100%{box-shadow:0 0 0 0 rgba(255,150,30,.55),0 4px 12px rgba(255,122,26,.35)}50%{box-shadow:0 0 0 8px rgba(255,150,30,0),0 4px 18px rgba(255,122,26,.65)}}
+@media (prefers-reduced-motion:reduce){.reqcard.alert{animation:none;box-shadow:0 0 14px rgba(255,122,26,.6)}}
