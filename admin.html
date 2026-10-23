@@ -16,7 +16,7 @@
 <body>
 <main id="main"><p class="empty">טוען...</p></main>
 <script type="module">
-import { initPage, supabase, esc, icon, iconBox, avatar, ilDate, ilTime, toIsraelDate, CARD_COLORS } from './js/common.js';
+import { initPage, supabase, esc, icon, iconBox, avatar, ilDate, ilTime, toIsraelDate, CARD_COLORS, ROOMS } from './js/common.js';
 import { TASK_ICONS } from './js/icons.js';
 import { generateOccurrences, syncOccurrences } from './js/generate.js';
 
@@ -126,6 +126,8 @@ function showForm(t) {
       </div>
       <label for="subject">נושא המשימה (אופציונלי)</label>
       <select class="sel" id="subject" style="width:100%"><option value="">ללא</option>${profiles.map(p => `<option value="${p.id}" ${v.subject_id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
+      <label for="room">חדר (אופציונלי, התמונה של החדר תוצג במקום האייקון)</label>
+      <select class="sel" id="room" style="width:100%"><option value="">ללא</option>${Object.entries(ROOMS).map(([k, n]) => `<option value="${k}" ${v.room === k ? 'selected' : ''}>${n}</option>`).join('')}</select>
       <div class="grid2">
         <div><label for="points">נקודות</label><input id="points" type="number" min="0" inputmode="numeric" value="${v.points}"></div>
         <div><label for="penalty">קנס אם לא בוצעה</label><input id="penalty" type="number" min="0" inputmode="numeric" value="${v.penalty_points}"></div>
@@ -151,18 +153,28 @@ function showForm(t) {
   document.getElementById('tList').onclick = showList;
   const $ = id => document.getElementById(id);
   let slots = slotsInit;
+  const allowedUsers = () => {
+    const r = $('room').value;
+    const by = n => users.filter(u => u.name === n);
+    if (r === 'noa') { const a = by('נועה'); if (a.length) return a; }
+    if (r === 'maya') { const a = by('מאיה'); if (a.length) return a; }
+    if (r === 'parents') { const a = users.filter(u => u.name === 'אמא' || u.name === 'אבא'); if (a.length) return a; }
+    return users;
+  };
   const drawSlots = () => {
     const n = Math.max(1, Math.min(10, parseInt($('times').value) || 1));
-    while (slots.length < n) slots.push({ assignee_id: users[0]?.id || '', time: '18:00' });
+    const allowed = allowedUsers();
+    while (slots.length < n) slots.push({ assignee_id: allowed[0]?.id || '', time: '18:00' });
     slots.length = n;
+    slots.forEach(s => { if (!allowed.some(u => u.id === s.assignee_id)) s.assignee_id = allowed[0]?.id || ''; });
     $('slots').innerHTML = slots.map((s, i) => `<div class="slotrow">
-      <select class="sel" data-a="${i}">${users.map(u => `<option value="${u.id}" ${s.assignee_id === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select>
+      <select class="sel" data-a="${i}" ${allowed.length === 1 ? 'disabled' : ''}>${allowed.map(u => `<option value="${u.id}" ${s.assignee_id === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select>
       <input type="time" data-t="${i}" value="${s.time}" dir="ltr"></div>`).join('');
     $('slots').querySelectorAll('[data-a]').forEach(el => el.onchange = () => slots[el.dataset.a].assignee_id = el.value);
     $('slots').querySelectorAll('[data-t]').forEach(el => el.onchange = () => slots[el.dataset.t].time = el.value);
   };
   const toggle = () => { $('weekdayBox').classList.toggle('hidden', $('repeat').value !== 'weekly'); $('dateBox').classList.toggle('hidden', $('repeat').value !== 'once'); };
-  $('times').oninput = drawSlots; $('repeat').onchange = toggle; toggle(); drawSlots();
+  $('times').oninput = drawSlots; $('room').onchange = drawSlots; $('repeat').onchange = toggle; toggle(); drawSlots();
 
   $('f').onsubmit = async (e) => {
     e.preventDefault();
@@ -178,7 +190,7 @@ function showForm(t) {
     if (repeat === 'once' && !$('date').value) return err('צריך לבחור תאריך');
     const base = {
       title, description: $('desc').value.trim() || null, tips: $('tips').value.trim() || null,
-      icon: $('icon').value, color: $('color').value, subject_id: $('subject').value || null,
+      icon: $('icon').value, color: $('color').value, subject_id: $('subject').value || null, room: $('room').value || null,
       points, penalty_points: parseInt($('penalty').value) || 0, late_fraction: Number($('late').value),
       requires_photo: $('photo').checked, times_required: slots.length,
       remind_before_minutes: $('remind').value === '' ? null : parseInt($('remind').value),
