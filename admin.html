@@ -54,12 +54,28 @@ async function showList() {
     </div>
     <div id="rows"><p class="empty">טוען...</p></div>
     <button class="btn secondary" id="gen" type="button" style="width:100%;margin-top:12px">ליצור עכשיו את משימות היום והשבוע</button>
-    <p class="note">בהמשך זה יקרה אוטומטית כל בוקר. עד אז לוחצים כאן.</p>`;
+    <p class="note">בהמשך זה יקרה אוטומטית כל בוקר. עד אז לוחצים כאן.</p>
+    <div class="sec-title" style="margin-top:22px">הצ'אט המשפחתי</div>
+    <button class="btn secondary" id="wipe" type="button" style="width:100%;margin-top:0;color:#B91C1C;border-color:#EF4444">מחיקת כל הודעות הצ'אט</button>
+    <p class="note">מוחק את הודעות הצ'אט ואת הודעות המערכת (כולל התמונות שנשלחו בצ'אט). דיווחי המשימות והנקודות לא נמחקים.</p>`;
   document.getElementById('tAdd').onclick = () => showForm(null);
   document.getElementById('gen').onclick = async (e) => {
     e.target.disabled = true;
     try { const r = await generateOccurrences(session.user.id); toast(`נוצרו ${r.created} משימות (${r.skipped} כבר היו קיימות)`); }
     catch (err) { toast('היצירה נכשלה: ' + (err.message || err), true); }
+    e.target.disabled = false;
+  };
+  document.getElementById('wipe').onclick = async (e) => {
+    if (!confirm('למחוק את כל הודעות הצ\'אט? אי אפשר לשחזר.')) return;
+    e.target.disabled = true;
+    try {
+      const { data: msgs } = await supabase.from('feed').select('id,photo_path').in('type', ['chat', 'system']);
+      const photos = (msgs || []).map(m => m.photo_path).filter(Boolean);
+      const { error: dErr } = await supabase.from('feed').delete().in('type', ['chat', 'system']);
+      if (dErr) throw dErr;
+      if (photos.length) await supabase.storage.from('photos').remove(photos);
+      toast(`הצ'אט נמחק (${(msgs || []).length} הודעות)`);
+    } catch (err) { toast('המחיקה נכשלה: ' + (err.message || err), true); }
     e.target.disabled = false;
   };
   const { data, error } = await supabase.from('tasks').select('*').eq('active', true)
