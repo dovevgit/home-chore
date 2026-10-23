@@ -227,3 +227,8 @@ textarea{width:100%;min-height:80px;border:1.5px solid var(--field);border-radiu
 .who{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .whochip{display:inline-flex;align-items:center;gap:6px;border:2px solid var(--field);background:#fff;color:var(--text);border-radius:999px;font:inherit;font-weight:700;font-size:15px;padding:4px 12px 4px 8px;cursor:pointer}
 .whochip.on{border-color:var(--blue);background:#EAF3FF;color:#0A58CA}
+
+.announce{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#FFE29A,#FFC93C);border:2px solid #F5A400;border-radius:20px;padding:14px 16px;margin-bottom:10px;box-shadow:0 4px 14px rgba(245,164,0,.35)}
+.announce .trophy{flex:none;width:58px;height:58px;border-radius:50%;background:linear-gradient(160deg,#FFF6D6,#FFD166);display:flex;align-items:center;justify-content:center;color:#B45309;box-shadow:inset 0 -3px 6px rgba(180,83,9,.25),0 2px 6px rgba(180,83,9,.3)}
+.announce small{display:block;font-weight:800;color:#92400E;font-size:13px}
+.announce b{display:block;font-size:19px;line-height:1.3;color:#451A03;overflow-wrap:anywhere}
