@@ -14,6 +14,35 @@
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="js/splash.js"></script>
 <link rel="stylesheet" href="css/style.css">
+<style>
+/* עיצוב הדף נמצא כאן כדי שלא יהיה תלוי בגרסת style.css */
+.fridge{position:relative;overflow:hidden;height:calc(100dvh - 76px - env(safe-area-inset-top));background:linear-gradient(90deg,#CBD6E0,#EEF3F8 14%,#F7FAFC 50%,#EEF3F8 86%,#C3CFDA)}
+.fridge .fz{position:absolute;inset-inline:0;top:30%;height:7px;background:linear-gradient(180deg,#9AA8B6,#C9D4DE);box-shadow:0 2px 4px rgba(31,41,55,.25)}
+.fridge .hd{position:absolute;right:12px;width:14px;border-radius:8px;background:linear-gradient(90deg,#8C99A6,#E7EDF2 45%,#9AA7B3);box-shadow:0 2px 5px rgba(31,41,55,.35)}
+.fridge .hd1{top:19%;height:9%}.fridge .hd2{top:40%;height:20%}
+.fnote{position:absolute;width:34%;aspect-ratio:1;border:0;border-radius:3px 3px 8px 3px;padding:30px 8px 8px;font:inherit;text-align:start;cursor:pointer;box-shadow:0 5px 10px rgba(31,41,55,.28);display:flex;flex-direction:column;gap:2px;overflow:hidden;color:#1F2937}
+.fnote .mg{position:absolute;top:6px;left:50%;margin-left:-8px;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#FF8A8A,#D62828);box-shadow:0 2px 3px rgba(0,0,0,.35)}
+.fnote .fav{position:absolute;top:4px;inset-inline-start:5px;line-height:0}
+.fnote .ftxt{font-size:14px;font-weight:700;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.fnote .ftxt.one{-webkit-line-clamp:1;font-size:12.5px}
+.fnote .fdraw{width:100%;flex:1;min-height:0;object-fit:contain}
+.fempty{position:absolute;inset-inline:0;top:42%;text-align:center;font-size:19px;font-weight:700;color:#6B7280;margin:0}
+.fab{position:absolute;bottom:18px;inset-inline-start:18px;width:62px;height:62px;border-radius:50%;border:0;background:var(--blue);color:#fff;font-size:38px;line-height:1;box-shadow:0 6px 14px rgba(13,110,253,.45);cursor:pointer}
+.ncard{border-radius:12px;padding:14px;box-shadow:inset 0 0 0 1px rgba(31,41,55,.08)}
+.ncard .nhead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.ncard .nhead small{display:block;color:#4B5563;font-weight:700}
+.ncard .nbig{width:100%;display:block;border-radius:8px;background:rgba(255,255,255,.35)}
+.ncard .nbody{font-size:20px;font-weight:700;line-height:1.4;margin:8px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+#pad{width:100%;aspect-ratio:1;display:block;touch-action:none;background:rgba(255,255,255,.55);border-radius:10px;border:2px dashed rgba(31,41,55,.25)}
+.ptools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.pc{width:30px;height:30px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1.5px rgba(31,41,55,.3);cursor:pointer;padding:0}
+.pc.big{width:40px;height:40px}
+.pc.on{box-shadow:0 0 0 3px var(--blue)}
+.pt{border:1.5px solid rgba(31,41,55,.3);background:#fff;border-radius:999px;font:inherit;font-weight:700;font-size:14px;padding:4px 12px;cursor:pointer}
+.pt.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+main{overscroll-behavior:contain}.modal-card{overscroll-behavior:contain}
+</style>
 </head>
 <body class="fridgepage">
 <main style="padding:0;max-width:none">
@@ -57,7 +86,7 @@ function render() {
     ${n.body ? `<span class="ftxt ${n.drawing ? 'one' : ''}">${esc(n.body)}</span>` : ''}</button>`).join('');
 }
 $('notes').addEventListener('click', e => { const b = e.target.closest('.fnote'); if (b) openNote(notes.find(n => n.id === b.dataset.id)); });
-const close = () => $('modal').classList.add('hidden');
+const close = () => { $('modal').classList.add('hidden'); document.body.style.overflow = ''; };
 $('modal').addEventListener('click', e => { if (e.target === $('modal')) close(); });
 
 function openNote(n) {
@@ -95,16 +124,17 @@ function pickSpot() {
 }
 
 function openAdd() {
-  let color = 'yellow', drawing = false, hasInk = false, tool = 'pen', pen = '#1F2937', size = 4, hist = [];
+  document.body.style.overflow = 'hidden';
+  let color = 'yellow', drawing = false, hasInk = false, tool = 'pen', pen = '#1F2937', size = 5, hist = [];
   $('modalCard').innerHTML = `<button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 20)}</button>
     <h2 style="margin:0 0 6px;font-size:20px">פתק חדש</h2>
     <div class="ncard" id="prev" style="background:${COLORS.yellow};padding:10px">
       <textarea id="nt" maxlength="200" placeholder="מה רוצים לכתוב?" style="background:transparent;border:0;min-height:80px"></textarea>
       <div id="padbox" class="hidden">
-        <canvas id="pad" width="360" height="360"></canvas>
+        <canvas id="pad" width="480" height="480"></canvas>
         <div class="ptools">
           ${['#1F2937', '#E11D48', '#2563EB', '#16A34A', '#F59E0B', '#9333EA'].map(c => `<button type="button" class="pc" data-c="${c}" style="background:${c}"></button>`).join('')}
-          <button type="button" class="pt" data-s="3">דק</button><button type="button" class="pt" data-s="7">עבה</button>
+          <button type="button" class="pt" data-s="3">דק</button><button type="button" class="pt" data-s="9">עבה</button>
           <button type="button" class="pt" id="er">מחק</button><button type="button" class="pt" id="un">ביטול</button><button type="button" class="pt" id="cl">נקה</button>
         </div></div></div>
     <div class="who" id="cols" style="margin-top:10px;justify-content:center">${Object.entries(COLORS).map(([k, c]) => `<button type="button" class="pc big ${k === color ? 'on' : ''}" data-k="${k}" style="background:${c}" aria-label="${k}"></button>`).join('')}</div>
@@ -117,17 +147,26 @@ function openAdd() {
   const cv = $('pad'), ctx = cv.getContext('2d');
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   const snap = () => { hist.push(ctx.getImageData(0, 0, cv.width, cv.height)); if (hist.length > 25) hist.shift(); };
-  const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; };
-  let down = false, last = null;
-  cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); down = true; snap(); last = pos(e); stroke(last, last); });
-  cv.addEventListener('pointermove', e => { if (!down) return; e.preventDefault(); const p = pos(e); stroke(last, p); last = p; });
-  const up = () => { down = false; };
-  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-  function stroke(a, b) {
-    ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
-    ctx.strokeStyle = pen; ctx.lineWidth = tool === 'eraser' ? size * 4 : size;
-    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0] + 0.01, b[1] + 0.01); ctx.stroke(); hasInk = true;
-  }
+  const xy = (cx, cy) => { const r = cv.getBoundingClientRect(); return [(cx - r.left) * cv.width / r.width, (cy - r.top) * cv.height / r.height]; };
+  let down = false, p0 = null, m0 = null;
+  const style = () => { ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over'; ctx.strokeStyle = pen; ctx.fillStyle = pen; ctx.lineWidth = tool === 'eraser' ? size * 4 : size; };
+  const begin = (x, y) => { snap(); down = true; p0 = [x, y]; m0 = [x, y]; style(); ctx.beginPath(); ctx.arc(x, y, ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fill(); hasInk = true; };
+  const move = (x, y) => {
+    if (!down) return;
+    const m1 = [(p0[0] + x) / 2, (p0[1] + y) / 2];
+    style(); ctx.beginPath(); ctx.moveTo(m0[0], m0[1]); ctx.quadraticCurveTo(p0[0], p0[1], m1[0], m1[1]); ctx.stroke();
+    p0 = [x, y]; m0 = m1;
+  };
+  const end = () => { if (!down) return; down = false; style(); ctx.beginPath(); ctx.moveTo(m0[0], m0[1]); ctx.lineTo(p0[0], p0[1]); ctx.stroke(); };
+  // מגע (טלפון): אירועי מגע ישירים, בלי גלילה של הדף בזמן ציור
+  cv.addEventListener('touchstart', e => { e.preventDefault(); const t = e.touches[0]; begin(...xy(t.clientX, t.clientY)); }, { passive: false });
+  cv.addEventListener('touchmove', e => { e.preventDefault(); const t = e.touches[0]; if (t) move(...xy(t.clientX, t.clientY)); }, { passive: false });
+  cv.addEventListener('touchend', e => { e.preventDefault(); end(); }, { passive: false });
+  cv.addEventListener('touchcancel', end);
+  // עכבר (מחשב)
+  cv.addEventListener('mousedown', e => { e.preventDefault(); begin(...xy(e.clientX, e.clientY)); });
+  window.addEventListener('mousemove', e => { if (down) move(...xy(e.clientX, e.clientY)); });
+  window.addEventListener('mouseup', end);
   const mark = () => { document.querySelectorAll('.ptools .pc').forEach(x => x.classList.toggle('on', tool === 'pen' && x.dataset.c === pen)); $('er').classList.toggle('on', tool === 'eraser'); };
   document.querySelector('.ptools').onclick = e => {
     const b = e.target.closest('button'); if (!b) return;
