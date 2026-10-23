@@ -24,10 +24,13 @@
   <div id="tasks"><p class="empty">טוען...</p></div>
   <div class="sec-head"><div class="sec-title">מה קרה לאחרונה</div><a href="history.html">הצג הכל</a></div>
   <div id="recent"><p class="empty">טוען...</p></div>
-  <div class="sec-title">הודעות אחרונות</div>
+  <div class="sec-head"><div class="sec-title">הודעות אחרונות</div><a href="chat.html" id="chatLink">לצ'אט המלא</a></div>
   <div id="feed"><p class="empty">טוען...</p></div>
+  <form class="quickmsg" id="quick" autocomplete="off">
+    <input id="qtext" type="text" placeholder="כתבו הודעה למשפחה..." maxlength="500" enterkeyhint="send">
+    <button class="cbtn send" id="qsend" type="submit" aria-label="שליחה"></button>
+  </form>
 </main>
-<a class="fab" href="chat.html" id="fab" aria-label="הודעות משפחתיות"></a>
 <script type="module">
 import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, pointsFor, ilDate, ilTime, addDays, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
 import { weeklyPoints } from './js/points.js';
@@ -98,24 +101,33 @@ else {
   }).join('');
 }
 
-/* --- כפתור צ'אט צף ותג הודעות שלא נקראו --- */
-{
-  const fab = document.getElementById('fab');
-  fab.innerHTML = icon('message-circle', 28);
+/* --- הודעות: תג שלא נקראו, רשימה ושורת כתיבה --- */
+document.getElementById('qsend').innerHTML = icon('send', 22);
+async function loadFeed() {
+  const { data: feed, error: fErr } = await supabase.from('feed').select('id,type,user_id,body,photo_path,created_at').in('type', ['system', 'chat']).order('created_at', { ascending: false }).limit(4);
+  const fEl = document.getElementById('feed');
+  if (fErr) { fEl.innerHTML = '<p class="empty">לא הצלחנו לטעון הודעות</p>'; return; }
+  if (!feed.length) { fEl.innerHTML = '<p class="empty">אין הודעות עדיין. כתבו הודעה ראשונה!</p>'; return; }
+  fEl.innerHTML = feed.slice().reverse().map(m => m.type === 'system'
+    ? `<div class="sys"><small>הודעת מערכת · ${ilTime(new Date(m.created_at))}</small>${esc(m.body)}</div>`
+    : `<div class="msg ${m.user_id === me?.id ? 'mine' : ''}">${m.user_id === me?.id ? '' : avatar(byId[m.user_id], 34)}
+        <div class="bubble">${m.user_id === me?.id ? '' : `<b>${esc(byId[m.user_id]?.name || 'מישהו')}</b>`}${m.photo_path ? '<div>📷 תמונה</div>' : ''}${m.body ? `<div>${esc(m.body)}</div>` : ''}<span class="mtime" dir="ltr">${ilTime(new Date(m.created_at))}</span></div></div>`).join('');
   let seen = ''; try { seen = localStorage.getItem('chatSeen') || ''; } catch (_) {}
-  let q = supabase.from('feed').select('id,user_id').in('type', ['chat', 'system']);
-  if (seen) q = q.gt('created_at', seen);
-  const { data: un } = await q;
-  const n = (un || []).filter(m => m.user_id !== me?.id).length;
-  if (n) fab.insertAdjacentHTML('beforeend', `<span class="badge">${n > 9 ? '9+' : n}</span>`);
+  const n = feed.filter(m => m.user_id !== me?.id && (!seen || m.created_at > seen)).length;
+  const l = document.getElementById('chatLink');
+  l.innerHTML = 'לצ\'אט המלא' + (n ? ` <span class="badge2">${n > 9 ? '9+' : n}</span>` : '');
 }
-
-/* --- הודעות --- */
-const { data: feed, error: fErr } = await supabase.from('feed').select('id,type,body,created_at').in('type', ['system', 'chat']).order('created_at', { ascending: false }).limit(5);
-const fEl = document.getElementById('feed');
-if (fErr) fEl.innerHTML = '<p class="empty">לא הצלחנו לטעון הודעות</p>';
-else if (!feed.length) fEl.innerHTML = '<p class="empty">אין הודעות עדיין</p>';
-else fEl.innerHTML = feed.map(m => `<div class="sys"><small>${m.type === 'system' ? 'הודעת מערכת' : 'הודעה'} · ${ilTime(new Date(m.created_at))}</small>${esc(m.body)}</div>`).join('');
+await loadFeed();
+document.getElementById('quick').addEventListener('submit', async e => {
+  e.preventDefault();
+  const input = document.getElementById('qtext'); const body = input.value.trim(); if (!body) return;
+  input.value = ''; document.getElementById('qsend').disabled = true;
+  const { error } = await supabase.from('feed').insert({ type: 'chat', user_id: me.id, body });
+  document.getElementById('qsend').disabled = false;
+  if (error) { input.value = body; alert('השליחה נכשלה, אפשר לנסות שוב'); return; }
+  try { localStorage.setItem('chatSeen', new Date().toISOString()); } catch (_) {}
+  loadFeed();
+});
 </script>
 </body>
 </html>
