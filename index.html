@@ -122,8 +122,10 @@ async function loadFeed() {
 }
 document.getElementById('reqIcon').innerHTML = icon('hand-heart', 28);
 async function loadReqBadge() {
-  const { data } = await supabase.from('requests').select('id,created_by,to_user,status').eq('status', 'open');
-  const n = (data || []).filter(r => (r.to_user === null && r.created_by !== me?.id) || r.to_user === me?.id).length;
+  const { data } = await supabase.from('requests').select('id,created_by,to_user,status').in('status', ['open', 'taken']);
+  const n = (data || []).filter(r => r.status === 'open' && ((r.to_user === null && r.created_by !== me?.id) || r.to_user === me?.id)).length;
+  document.getElementById('reqCard').classList.toggle('glow', (data || []).length > 0);
+  document.getElementById('reqCard').classList.toggle('alert', n > 0);
   document.getElementById('reqBadge').innerHTML = n ? `<span class="badge2">${n > 9 ? '9+' : n}</span>` : '';
 }
 loadReqBadge();
