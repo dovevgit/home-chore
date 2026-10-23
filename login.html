@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | כניסה</title>
+<meta name="theme-color" content="#0D6EFD">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="hero"><h1>הבית שלנו</h1><p>משימות הבית, ביחד ובקלות</p></div>
+<form class="card login-card" id="form" novalidate>
+  <label for="email">אימייל</label>
+  <input id="email" type="email" autocomplete="username" inputmode="email" dir="ltr" placeholder="name@example.com" required>
+  <label for="password">סיסמה</label>
+  <input id="password" type="password" autocomplete="current-password" dir="ltr" placeholder="הסיסמה שלך" required>
+  <button class="btn" id="submit" type="submit">התחברות</button>
+  <p class="error" id="error" role="alert"></p>
+  <p class="help">לשינוי סיסמה פנו לאבא</p>
+</form>
+<div class="ios-tip hidden" id="iosTip">להתקנה: שיתוף ← הוספה למסך הבית</div>
+<script type="module">
+import { supabase } from './js/supabase.js';
+const { data } = await supabase.auth.getSession();
+if (data.session) location.replace('index.html');
+
+const form = document.getElementById('form');
+const btn = document.getElementById('submit');
+const err = document.getElementById('error');
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  err.textContent = '';
+  btn.disabled = true; btn.textContent = 'מתחבר...';
+  const { error } = await supabase.auth.signInWithPassword({
+    email: document.getElementById('email').value.trim(),
+    password: document.getElementById('password').value
+  });
+  if (error) {
+    err.textContent = 'אימייל או סיסמה שגויים';
+    btn.disabled = false; btn.textContent = 'התחברות';
+  } else {
+    location.replace('index.html');
+  }
+});
+
+const ua = navigator.userAgent;
+const isIOS = /iPhone|iPad|iPod/.test(ua);
+const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+const standalone = window.navigator.standalone === true;
+if (isIOS && isSafari && !standalone) document.getElementById('iosTip').classList.remove('hidden');
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>

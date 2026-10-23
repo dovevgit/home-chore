@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו</title>
+<meta name="theme-color" content="#0D6EFD">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="bar">
+  <h1>הבית שלנו</h1>
+  <button class="btn secondary" id="logout" type="button">התנתקות</button>
+</header>
+<main>
+  <p id="hello" class="help" style="text-align:start"></p>
+  <h2>המשימות של היום</h2>
+  <div id="tasks"><p class="empty">טוען...</p></div>
+  <h2>הודעות אחרונות</h2>
+  <div id="feed"><p class="empty">טוען...</p></div>
+</main>
+<script type="module">
+import { supabase } from './js/supabase.js';
+
+const { data: { session } } = await supabase.auth.getSession();
+if (!session) { location.replace('login.html'); }
+
+document.getElementById('logout').addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  location.replace('login.html');
+});
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// התאריך של היום בשעון ישראל, בפורמט YYYY-MM-DD
+const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+
+const { data: me } = await supabase.from('profiles').select('name').eq('id', session.user.id).maybeSingle();
+document.getElementById('hello').textContent = me ? `שלום, ${me.name}` : '';
+
+const { data: tasks, error: tErr } = await supabase
+  .from('tasks').select('id,title,points,times_required')
+  .eq('kind', 'occurrence').eq('occurrence_date', today).eq('active', true)
+  .order('title');
+const tEl = document.getElementById('tasks');
+if (tErr) tEl.innerHTML = '<p class="empty">לא הצלחנו לטעון משימות</p>';
+else if (!tasks.length) tEl.innerHTML = '<p class="empty">אין משימות להיום</p>';
+else tEl.innerHTML = tasks.map(t => `
+  <div class="task"><div><b>${esc(t.title)}</b>${t.times_required > 1 ? ` <span dir="ltr">×${t.times_required}</span>` : ''}</div>
+  <div><span class="chip">ממתין</span> <span class="pts" dir="ltr">+${t.points}</span></div></div>`).join('');
+
+const { data: feed, error: fErr } = await supabase
+  .from('feed').select('id,type,body,created_at')
+  .in('type', ['system','chat']).order('created_at', { ascending: false }).limit(5);
+const fEl = document.getElementById('feed');
+if (fErr) fEl.innerHTML = '<p class="empty">לא הצלחנו לטעון הודעות</p>';
+else if (!feed.length) fEl.innerHTML = '<p class="empty">אין הודעות עדיין</p>';
+else fEl.innerHTML = feed.map(m => `
+  <div class="sys"><small>${m.type === 'system' ? 'הודעת מערכת' : 'הודעה'} · ${new Date(m.created_at).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Jerusalem'})}</small>${esc(m.body)}</div>`).join('');
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
