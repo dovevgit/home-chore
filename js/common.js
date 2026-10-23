@@ -88,7 +88,7 @@ export const CARD_COLORS = {
 };
 export const tintOf = (task) => (CARD_COLORS[task.color] || CARD_COLORS.blue).tint;
 export const ROOMS = { noa: 'החדר של נועה', maya: 'החדר של מאיה', parents: 'חדר ההורים' };
-const ART = new Set(["paw-print", "dog", "utensils", "trash-2", "bed-double", "brush-cleaning", "broom", "book-open", "bath", "footprints", "shirt", "washing-machine", "shopping-cart", "cooking-pot", "recycle", "leaf"]);
+const ART = new Set(["paw-print", "dog", "utensils", "trash-2", "bed-double", "brush-cleaning", "broom", "book-open", "bath", "footprints", "shirt", "washing-machine", "shopping-cart", "cooking-pot", "recycle", "leaf", "dishwasher"]);
 export function iconBox(task, size = 46) {
   const c = CARD_COLORS[task.color] || CARD_COLORS.blue;
   if (task.room && ROOMS[task.room]) return `<span class="ibox art room" style="width:${size}px;height:${size}px;background:${c.bg}"><img src="rooms/${task.room}.jpg" alt="${ROOMS[task.room]}"></span>`;

@@ -50,7 +50,7 @@ export const ICONS = {
 
 // אייקונים שהמנהל יכול לבחור למשימה (מפתח, שם בעברית)
 export const TASK_ICONS = [
-  ['paw-print','הכלב (כפה)'],['dog','הכלב'],['utensils','כלים ואוכל'],['trash-2','פח'],['bed-double','חדר'],
+  ['paw-print','הכלב (כפה)'],['dog','הכלב'],['utensils','כלים ואוכל'],['dishwasher','מדיח כלים'],['trash-2','פח'],['bed-double','חדר'],
   ['brush-cleaning','ניקיון'],['broom','טאטוא'],['book-open','לימודים'],['bath','אמבטיה'],
   ['footprints','מדרגות'],['shirt','כביסה'],['washing-machine','מכונת כביסה'],['shopping-cart','קניות'],
   ['cooking-pot','בישול'],['recycle','מיחזור'],['leaf','צמחים'],['sparkles','כללי']
