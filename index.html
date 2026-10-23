@@ -17,6 +17,7 @@
 </head>
 <body>
 <main>
+  <div id="announce"></div>
   <div id="leader"></div>
   <div class="card" style="margin-bottom:8px"><div class="sec-title" style="margin:0">סיכום היום</div>
     <div class="stats" id="stats"><p class="empty" style="flex:1">טוען...</p></div></div>
@@ -120,6 +121,11 @@ async function loadFeed() {
   const l = document.getElementById('chatLink');
   l.innerHTML = 'לצ\'אט המלא' + (n ? ` <span class="badge2">${n > 9 ? '9+' : n}</span>` : '');
 }
+(async () => {
+  const { data: an } = await supabase.from('app_settings').select('value').eq('key', 'announcement').maybeSingle();
+  const txt = (an?.value || '').trim();
+  document.getElementById('announce').innerHTML = txt ? `<div class="announce"><span class="trophy">${icon('trophy', 34)}</span><div><small>הודעה מיוחדת</small><b>${esc(txt)}</b></div></div>` : '';
+})();
 document.getElementById('reqIcon').innerHTML = icon('hand-heart', 28);
 async function loadReqBadge() {
   const { data } = await supabase.from('requests').select('id,created_by,to_users,status,declined_by').in('status', ['open', 'taken']);
