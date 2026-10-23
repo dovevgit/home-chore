@@ -16,24 +16,32 @@ export function dueAt(t, date, time, ws) {
   return toIsraelDate(date, time).toISOString();
 }
 
+// משימה יומית שנוצרת באמצע היום: חזרות ששעתן כבר עברה לא נוצרות להיום (כדי שלא יופיע איחור מיידי).
+export function keepFuture(t, slots, now = new Date()) {
+  if (t.repeat !== 'daily') return slots;
+  return slots.filter(s => new Date(s.due_at) > now).map((s, i) => ({ ...s, n: i + 1 }));
+}
+
 export async function generateOccurrences(createdBy) {
   const now = new Date();
   const today = ilDate(now);
   const ws = weekStart(now);
   const { data: templates, error } = await supabase.from('tasks').select('*').eq('kind', 'template').eq('active', true);
   if (error) throw error;
-  let created = 0, skipped = 0;
+  let created = 0, skipped = 0, past = 0;
   for (const t of templates || []) {
     if (t.repeat !== 'daily' && t.repeat !== 'weekly') continue;
     const date = t.repeat === 'daily' ? today : ws.dateStr;
-    const slots = (t.slots || []).map((s, i) => ({
+    const all = (t.slots || []).map((s, i) => ({
       n: i + 1, assignee_id: s.assignee_id, due_at: dueAt(t, date, s.due_time, ws),
       reminded: false, overdue_notified: false, penalized: false
     }));
+    const slots = keepFuture(t, all, now);
+    if (!slots.length) { past++; continue; }
     const row = {
       kind: 'occurrence', template_id: t.id, subject_id: t.subject_id, title: t.title, description: t.description,
       tips: t.tips, room: t.room, icon: t.icon, color: t.color, points: t.points, requires_photo: t.requires_photo,
-      times_required: t.times_required, repeat: t.repeat, weekday: t.weekday, late_fraction: t.late_fraction,
+      times_required: t.repeat === 'daily' ? slots.length : t.times_required, repeat: t.repeat, weekday: t.weekday, late_fraction: t.late_fraction,
       penalty_points: t.penalty_points, remind_before_minutes: t.remind_before_minutes,
       reminder_text: t.reminder_text, overdue_text: t.overdue_text, slots, occurrence_date: date, created_by: createdBy
     };
@@ -42,7 +50,7 @@ export async function generateOccurrences(createdBy) {
     else if (e.code === '23505') skipped++;
     else throw e;
   }
-  return { created, skipped };
+  return { created, skipped, past };
 }
 
 export function buildSlots(t, date, ws) {
@@ -66,7 +74,9 @@ export async function syncOccurrences(template) {
     const patch = {};
     for (const k of COPY) patch[k] = template[k];
     if (!count) {
-      patch.slots = buildSlots(template, o.occurrence_date, ws);
+      const s = keepFuture(template, buildSlots(template, o.occurrence_date, ws));
+      if (s.length) { patch.slots = s; patch.times_required = template.repeat === 'daily' ? s.length : template.times_required; }
+      else { delete patch.times_required; }
       patch.weekday = template.weekday;
     }
     const { error } = await supabase.from('tasks').update(patch).eq('id', o.id);
