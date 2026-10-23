@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | לוח שנה</title>
+<meta name="theme-color" content="#0D6EFD">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <div class="calnav">
+    <button type="button" class="sqbtn" id="prev" aria-label="חודש קודם"></button>
+    <div class="calttl"><b id="mTitle"></b></div>
+    <button type="button" class="sqbtn" id="next" aria-label="חודש הבא"></button>
+  </div>
+  <div class="faces" id="faces"></div>
+  <div class="mgrid" id="grid"></div>
+  <div class="card mine" id="mine"></div>
+</main>
+<div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
+<script type="module">
+import { initPage, supabase, esc, icon, avatar, ilDate, addDays, dow } from './js/common.js';
+import { WEEKDAYS, hm } from './js/events.js';
+const { session, me: meP, profiles, isAdmin } = await initPage({ active: 'calendar', title: 'לוח שנה' });
+const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
+const users = profiles.filter(p => p.is_user);
+const me = session.user.id;
+const $ = id => document.getElementById(id);
+const today = ilDate(new Date());
+const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+const SHORT = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
+let ym = today.slice(0, 7), events = [], who = '';
+$('next').innerHTML = icon('chevron-left', 22);
+$('prev').innerHTML = icon('arrow-right', 22);
+const fmt = d => d.split('-').reverse().slice(0, 2).join('.');
+const shift = n => { let [y, m] = ym.split('-').map(Number); m += n; while (m > 12) { m -= 12; y++; } while (m < 1) { m += 12; y--; } ym = `${y}-${String(m).padStart(2, '0')}`; draw(); };
+const forDay = d => events.filter(e => (!who || e.user_id === who) && (e.repeat === 'weekly' ? e.weekday === dow(d) : e.event_date === d))
+  .sort((a, b) => hm(a.start_time).localeCompare(hm(b.start_time)));
+const when = e => e.repeat === 'weekly' ? `כל יום ${WEEKDAYS[e.weekday]}` : e.event_date.split('-').reverse().join('.');
+
+function drawFaces() {
+  $('faces').innerHTML = `<button type="button" class="face all ${who ? '' : 'on'}" data-w="">כולם</button>` +
+    users.map(u => `<button type="button" class="face ${who === u.id ? 'on' : ''}" data-w="${u.id}" aria-label="${esc(u.name)}">${avatar(u, 44)}<small>${esc(u.name)}</small></button>`).join('');
+}
+function draw() {
+  const [y, m] = ym.split('-').map(Number);
+  $('mTitle').textContent = `${MONTHS[m - 1]} ${y}`;
+  const first = `${ym}-01`, n = new Date(Date.UTC(y, m, 0)).getUTCDate(), lead = dow(first);
+  let html = SHORT.map(s => `<div class="mh">${s}</div>`).join('') + '<div class="mc off"></div>'.repeat(lead);
+  for (let i = 1; i <= n; i++) {
+    const d = `${ym}-${String(i).padStart(2, '0')}`;
+    const list = forDay(d), ids = [...new Set(list.map(e => e.user_id))];
+    html += `<button type="button" class="mc ${d === today ? 'today' : ''} ${list.length ? 'has' : ''}" data-d="${d}"><span class="dn">${i}</span>
+      <span class="stack">${ids.slice(0, 3).map(id => avatar(byId[id], 22)).join('')}${ids.length > 3 ? `<span class="more">+${ids.length - 3}</span>` : ''}</span></button>`;
+  }
+  $('grid').innerHTML = html;
+  drawFaces(); drawMine();
+}
+function drawMine() {
+  const mine = events.filter(e => e.user_id === me && (e.repeat === 'weekly' || e.event_date >= today))
+    .sort((a, b) => (a.repeat === b.repeat ? 0 : a.repeat === 'weekly' ? -1 : 1) || (a.repeat === 'weekly' ? a.weekday - b.weekday : a.event_date.localeCompare(b.event_date)));
+  $('mine').innerHTML = `<div class="minehd">${avatar(users.find(u => u.id === me) || meP, 52)}<div><b>הפעילויות שלי</b><small>${esc(meP?.name || '')}</small></div></div>
+    ${mine.length ? mine.map(e => `<button type="button" class="calev" data-id="${e.id}"><div class="calmain"><b>${esc(e.title)}</b><small>${when(e)}</small></div><span class="caltime" dir="ltr">${hm(e.start_time)}–${hm(e.end_time)}</span></button>`).join('') : '<p class="calnone">עוד לא הוספת פעילויות. לחצו על "הוספת פעילות".</p>'}
+    <button class="btn" id="add" type="button">${icon('plus', 22)} הוספת פעילות</button>`;
+  $('add').onclick = () => openForm(null, today);
+}
+async function load() {
+  const { data, error } = await supabase.from('events').select('*');
+  if (error) { $('grid').innerHTML = '<p class="empty" style="grid-column:1/-1">לא הצלחנו לטעון את לוח השנה</p>'; return; }
+  events = data || []; draw();
+}
+
+function showDay(d) {
+  const list = forDay(d);
+  $('modalCard').innerHTML = `<button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 22)}</button>
+    <h2 style="margin:0 0 10px;font-size:20px">יום ${WEEKDAYS[dow(d)]}, ${fmt(d)}</h2>
+    ${list.length ? list.map(e => { const p = byId[e.user_id]; const c = p?.color || '#3AB5FF';
+      return `<button type="button" class="calev" data-id="${e.id}" style="border-inline-start:6px solid ${c};background:${c}18">${avatar(p, 40)}
+        <div class="calmain"><b>${esc(e.title)}</b><small>${esc(p?.name || '')}${e.repeat === 'weekly' ? ' · כל שבוע' : ''}</small></div>
+        <span class="caltime" dir="ltr">${hm(e.start_time)}–${hm(e.end_time)}</span></button>`; }).join('') : '<p class="calnone">אין פעילויות ביום הזה</p>'}
+    <button class="btn" id="dayadd" type="button">${icon('plus', 22)} הוספת פעילות ליום הזה</button>`;
+  $('modal').classList.remove('hidden');
+  $('mx').onclick = close; $('dayadd').onclick = () => openForm(null, d);
+}
+const close = () => $('modal').classList.add('hidden');
+
+function viewOnly(ev) {
+  const p = byId[ev.user_id];
+  $('modalCard').innerHTML = `<button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 22)}</button>
+    <div style="display:flex;align-items:center;gap:12px">${avatar(p, 64)}<div><b style="font-size:21px">${esc(ev.title)}</b>
+    <div class="note" style="margin:4px 0 0;text-align:start">${esc(p?.name || '')}<br>${when(ev)} · <span dir="ltr">${hm(ev.start_time)}–${hm(ev.end_time)}</span></div></div></div>`;
+  $('modal').classList.remove('hidden'); $('mx').onclick = close;
+}
+
+function openForm(ev, date) {
+  const dd = date || today;
+  const e = ev || { user_id: me, title: '', repeat: 'once', weekday: dow(dd), event_date: dd, start_time: '14:00', end_time: '17:00' };
+  const canWho = isAdmin;
+  $('modalCard').innerHTML = `
+    <button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 22)}</button>
+    <h2 style="margin:0 0 10px;font-size:20px">${ev ? 'עריכת פעילות' : 'פעילות חדשה'}</h2>
+    <form id="ef" class="form">
+      <label for="et">שם הפעילות</label><input id="et" maxlength="60" value="${esc(e.title)}" placeholder="למשל: חוג כדורסל">
+      ${canWho ? `<label for="ew">של מי</label><select class="sel" id="ew" style="width:100%">${users.map(u => `<option value="${u.id}" ${u.id === e.user_id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select>` : ''}
+      <label for="er">תדירות</label><select class="sel" id="er" style="width:100%"><option value="once" ${e.repeat === 'once' ? 'selected' : ''}>פעם אחת</option><option value="weekly" ${e.repeat === 'weekly' ? 'selected' : ''}>כל שבוע באותו יום</option></select>
+      <div id="wbox"><label for="ed">יום בשבוע</label><select class="sel" id="ed" style="width:100%">${WEEKDAYS.map((n, i) => `<option value="${i}" ${e.weekday === i ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      <div id="dbox"><label for="edt">תאריך</label><input type="date" id="edt" value="${e.event_date || dd}" dir="ltr"></div>
+      <div style="display:flex;gap:10px"><div style="flex:1"><label for="es">משעה</label><input type="time" id="es" value="${hm(e.start_time)}" dir="ltr"></div>
+        <div style="flex:1"><label for="ee">עד שעה</label><input type="time" id="ee" value="${hm(e.end_time)}" dir="ltr"></div></div>
+      <p class="error" id="eerr" role="alert"></p>
+      <button class="btn" id="esave" type="submit">שמירה</button>
+      ${ev ? `<button class="btn secondary" id="edel" type="button" style="color:#B91C1C;border-color:#EF4444">מחיקת הפעילות</button>` : ''}
+    </form>`;
+  $('modal').classList.remove('hidden');
+  const tog = () => { $('wbox').classList.toggle('hidden', $('er').value !== 'weekly'); $('dbox').classList.toggle('hidden', $('er').value !== 'once'); };
+  $('er').onchange = tog; tog();
+  $('mx').onclick = close;
+  $('ef').onsubmit = async (x) => {
+    x.preventDefault();
+    const err = m => { $('eerr').textContent = m; };
+    const title = $('et').value.trim(), rep = $('er').value, st = $('es').value, en = $('ee').value;
+    if (!title) return err('צריך להזין שם לפעילות');
+    if (!st || !en) return err('צריך שעת התחלה ושעת סיום');
+    if (en <= st) return err('שעת הסיום צריכה להיות אחרי שעת ההתחלה');
+    if (rep === 'once' && !$('edt').value) return err('צריך לבחור תאריך');
+    const row = { title, repeat: rep, weekday: rep === 'weekly' ? parseInt($('ed').value) : null,
+      event_date: rep === 'once' ? $('edt').value : null, start_time: st, end_time: en,
+      user_id: canWho ? $('ew').value : (ev ? ev.user_id : me) };
+    $('esave').disabled = true;
+    const r = ev ? await supabase.from('events').update(row).eq('id', ev.id) : await supabase.from('events').insert(row);
+    if (r.error) { $('esave').disabled = false; return err('השמירה נכשלה: ' + r.error.message); }
+    if (rep === 'once') ym = row.event_date.slice(0, 7);
+    close(); load();
+  };
+  const del = $('edel');
+  if (del) del.onclick = async () => {
+    if (!confirm('למחוק את הפעילות?')) return;
+    const r = await supabase.from('events').delete().eq('id', ev.id);
+    if (r.error) return ($('eerr').textContent = 'המחיקה נכשלה');
+    close(); load();
+  };
+}
+
+const openEvent = id => { const ev = events.find(x => x.id === id); if (!ev) return; (isAdmin || ev.user_id === me) ? openForm(ev) : viewOnly(ev); };
+$('grid').addEventListener('click', e => { const b = e.target.closest('.mc[data-d]'); if (b) showDay(b.dataset.d); });
+$('mine').addEventListener('click', e => { const b = e.target.closest('.calev'); if (b) openEvent(b.dataset.id); });
+$('modalCard').addEventListener('click', e => { const b = e.target.closest('.calev'); if (b) openEvent(b.dataset.id); });
+$('faces').addEventListener('click', e => { const b = e.target.closest('.face'); if (!b) return; who = b.dataset.w; draw(); });
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) close(); });
+$('next').onclick = () => shift(1);
+$('prev').onclick = () => shift(-1);
+load();
+</script>
+</body>
+</html>

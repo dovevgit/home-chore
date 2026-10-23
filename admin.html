@@ -18,6 +18,7 @@
 <script type="module">
 import { initPage, supabase, esc, icon, iconBox, avatar, ilDate, ilTime, toIsraelDate, CARD_COLORS, ROOMS } from './js/common.js';
 import { TASK_ICONS } from './js/icons.js';
+import { findConflicts } from './js/events.js';
 import { generateOccurrences, syncOccurrences } from './js/generate.js';
 
 const { session, me, profiles, isAdmin } = await initPage({ title: 'ניהול משימות', back: 'index.html' });
@@ -223,6 +224,10 @@ function showForm(t) {
       row = { ...base, kind: 'template', repeat, weekday: repeat === 'weekly' ? parseInt($('weekday').value) : null,
         slots: slots.map(s => ({ assignee_id: s.assignee_id, due_time: s.time })) };
     }
+    try {
+      const conflicts = await findConflicts({ repeat, weekday: parseInt($('weekday').value), date: $('date').value, slots }, profiles);
+      if (conflicts.length && !confirm('שים לב להתנגשות עם לוח השנה:\n\n' + conflicts.join('\n') + '\n\nלשמור את המשימה בכל זאת?')) return;
+    } catch (_) {}
     const btn = $('save'); btn.disabled = true; btn.textContent = 'שומר...';
     const res = t ? await supabase.from('tasks').update(row).eq('id', t.id)
                   : await supabase.from('tasks').insert({ ...row, created_by: session.user.id });
