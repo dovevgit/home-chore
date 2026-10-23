@@ -113,12 +113,13 @@ textarea{width:100%;min-height:80px;border:1.5px solid var(--field);border-radiu
 .kv span:last-child{font-weight:800;font-size:17px;display:flex;align-items:center;gap:6px}
 
 /* ===== כניסה ===== */
-body.login{padding:0;background:linear-gradient(180deg,#0D6EFD 0%,#3AB5FF 38%,#EAF6FF 62%) no-repeat;min-height:100vh}
+body.login{padding:0;background:#3AB5FF url(../login-bg.jpg) center bottom/cover no-repeat;min-height:100vh;min-height:100dvh}
 .hero{text-align:center;padding:48px 20px 24px;color:#fff}
 .hero .tile{width:76px;height:76px;border-radius:24px;background:rgba(255,255,255,.22);display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px;color:#fff}
 .hero h1{margin:0;font-size:60px;font-weight:800;line-height:1.05;text-shadow:0 4px 0 #0A4FB8,0 8px 16px rgba(10,79,184,.35)}
 .hero p{margin:12px 0 0;font-size:20px;font-weight:700;text-shadow:0 1px 6px rgba(10,79,184,.6)}
-.login-card{max-width:420px;margin:0 auto;padding:22px 18px 24px}
+.login-card{max-width:420px;margin:0 16px 16px;padding:22px 18px 24px;background:rgba(255,255,255,.93);backdrop-filter:blur(6px);box-shadow:0 10px 30px rgba(10,79,184,.25)}
+@media(min-width:452px){.login-card{margin:0 auto 16px}}
 .login-card h2{text-align:center;font-size:24px;margin:0 0 6px}
 .ios-tip{background:#fff;border-radius:16px;padding:12px 16px;margin:16px auto;color:var(--text2);font-size:16px;text-align:center;max-width:420px}
 
