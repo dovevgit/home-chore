@@ -144,6 +144,11 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
       <a href="tasks.html" class="${active === 'tasks' ? 'on' : ''}">${icon('list-checks', 26)}<span>משימות</span></a>
       <a href="history.html" class="${active === 'history' ? 'on' : ''}">${icon('chart-column', 26)}<span>היסטוריה</span></a>`;
     document.body.append(nav);
+    // מעבר בין לשוניות ותפריט לא מוסיף להיסטוריה: חץ אחורה מהבית יוצא מהאפליקציה
+    document.querySelectorAll('.tabbar a, .drawer-panel a').forEach(a => a.addEventListener('click', ev => {
+      if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button) return;
+      ev.preventDefault(); location.replace(a.getAttribute('href'));
+    }));
   }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   showPendingToast();
