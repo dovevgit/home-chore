@@ -5,6 +5,7 @@
   --danger:#B91C1C; --success:#15803D;
 }
 *{box-sizing:border-box}
+html{color-scheme:only light}
 html,body{margin:0;min-height:100%}
 body{font-family:'Assistant',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:18px;line-height:1.4;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 .hidden{display:none!important}
