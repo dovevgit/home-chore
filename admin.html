@@ -58,12 +58,28 @@ async function showList() {
     <p class="note">בהמשך זה יקרה אוטומטית כל בוקר. עד אז לוחצים כאן.</p>
     <div class="sec-title" style="margin-top:22px">הצ'אט המשפחתי</div>
     <button class="btn secondary" id="wipe" type="button" style="width:100%;margin-top:0;color:#B91C1C;border-color:#EF4444">מחיקת כל הודעות הצ'אט</button>
-    <p class="note">מוחק את הודעות הצ'אט ואת הודעות המערכת (כולל התמונות שנשלחו בצ'אט). דיווחי המשימות והנקודות לא נמחקים.</p>`;
+    <p class="note">מוחק את הודעות הצ'אט ואת הודעות המערכת (כולל התמונות שנשלחו בצ'אט). דיווחי המשימות והנקודות לא נמחקים.</p>
+    <div class="sec-title" style="margin-top:22px">היסטוריית דיווחים</div>
+    <button class="btn secondary" id="wipeRep" type="button" style="width:100%;margin-top:0;color:#B91C1C;border-color:#EF4444">מחיקת כל הדיווחים וההיסטוריה</button>
+    <p class="note">מוחק את כל דיווחי המשימות (כולל תמונות הדיווח) ומאפס את הנקודות. אי אפשר לשחזר. מתאים לניקוי אחרי בדיקות. אפשר גם למחוק דיווח בודד: במסך ההיסטוריה לוחצים על דיווח.</p>`;
   document.getElementById('tAdd').onclick = () => showForm(null);
   document.getElementById('gen').onclick = async (e) => {
     e.target.disabled = true;
     try { const r = await generateOccurrences(session.user.id); toast(`נוצרו ${r.created} משימות (${r.skipped} כבר היו קיימות)`); }
     catch (err) { toast('היצירה נכשלה: ' + (err.message || err), true); }
+    e.target.disabled = false;
+  };
+  document.getElementById('wipeRep').onclick = async (e) => {
+    if (!confirm('למחוק את כל הדיווחים וההיסטוריה? הנקודות יתאפסו ואי אפשר לשחזר.')) return;
+    e.target.disabled = true;
+    try {
+      const { data: reps } = await supabase.from('feed').select('id,photo_path').eq('type', 'report');
+      const photos = (reps || []).map(m => m.photo_path).filter(Boolean);
+      const { error: dErr } = await supabase.from('feed').delete().eq('type', 'report');
+      if (dErr) throw dErr;
+      if (photos.length) await supabase.storage.from('photos').remove(photos);
+      toast(`ההיסטוריה נמחקה (${(reps || []).length} דיווחים)`);
+    } catch (err) { toast('המחיקה נכשלה: ' + (err.message || err), true); }
     e.target.disabled = false;
   };
   document.getElementById('wipe').onclick = async (e) => {
