@@ -118,6 +118,13 @@ async function loadFeed() {
   l.innerHTML = 'לצ\'אט המלא' + (n ? ` <span class="badge2">${n > 9 ? '9+' : n}</span>` : '');
 }
 await loadFeed();
+try {
+  supabase.channel('feed-home')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed', filter: 'type=in.(chat,system)' }, () => loadFeed())
+    .subscribe();
+} catch (_) {}
+setInterval(() => { if (!document.hidden) loadFeed(); }, 8000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadFeed(); });
 document.getElementById('quick').addEventListener('submit', async e => {
   e.preventDefault();
   const input = document.getElementById('qtext'); const body = input.value.trim(); if (!body) return;
