@@ -223,3 +223,7 @@ textarea{width:100%;min-height:80px;border:1.5px solid var(--field);border-radiu
 .reqcard.alert svg{color:#fff}
 @keyframes reqglow{0%,100%{box-shadow:0 0 0 0 rgba(255,150,30,.55),0 4px 12px rgba(255,122,26,.35)}50%{box-shadow:0 0 0 8px rgba(255,150,30,0),0 4px 18px rgba(255,122,26,.65)}}
 @media (prefers-reduced-motion:reduce){.reqcard.alert{animation:none;box-shadow:0 0 14px rgba(255,122,26,.6)}}
+
+.who{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.whochip{display:inline-flex;align-items:center;gap:6px;border:2px solid var(--field);background:#fff;color:var(--text);border-radius:999px;font:inherit;font-weight:700;font-size:15px;padding:4px 12px 4px 8px;cursor:pointer}
+.whochip.on{border-color:var(--blue);background:#EAF3FF;color:#0A58CA}
