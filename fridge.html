@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | פתקים על המקרר</title>
+<meta name="theme-color" content="#0D6EFD">
+<meta name="color-scheme" content="only light">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="fridgepage">
+<main style="padding:0;max-width:none">
+  <div class="fridge" id="fridge">
+    <div class="fz"></div><div class="hd hd1"></div><div class="hd hd2"></div>
+    <div id="notes"></div>
+    <p class="fempty hidden" id="fempty">המקרר ריק. הוסיפו פתק ראשון!</p>
+    <button type="button" class="fab" id="fadd" aria-label="פתק חדש">+</button>
+  </div>
+</main>
+<div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
+<script type="module">
+import { initPage, supabase, esc, icon, avatar, ilDate, ilTime, showToast } from './js/common.js';
+const { session, profiles, isAdmin } = await initPage({ title: 'פתקים על המקרר', back: 'index.html' });
+const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
+const me = session.user.id;
+const $ = id => document.getElementById(id);
+const COLORS = { yellow: '#FFF18F', pink: '#FFC6DC', blue: '#BDE2FF', green: '#C6F0C2', orange: '#FFD6A3' };
+const DAYS = 14;
+let notes = [];
+
+const ago = iso => {
+  const m = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (m < 1) return 'ממש עכשיו'; if (m < 60) return `לפני ${m} דקות`;
+  const h = Math.round(m / 60); if (h < 24) return `לפני ${h === 1 ? 'שעה' : h + ' שעות'}`;
+  const d = Math.round(h / 24); return `לפני ${d === 1 ? 'יום' : d + ' ימים'}`;
+};
+
+async function load() {
+  const since = new Date(Date.now() - DAYS * 864e5).toISOString();
+  const { data, error } = await supabase.from('fridge_notes').select('*').gte('created_at', since).order('created_at');
+  if (error) { $('notes').innerHTML = ''; $('fempty').textContent = 'לא הצלחנו לטעון את הפתקים'; $('fempty').classList.remove('hidden'); return; }
+  notes = (data || []).slice(-40); render();
+}
+function render() {
+  $('fempty').textContent = 'המקרר ריק. הוסיפו פתק ראשון!';
+  $('fempty').classList.toggle('hidden', notes.length > 0);
+  $('notes').innerHTML = notes.map(n => `<button type="button" class="fnote" data-id="${n.id}" style="left:${n.x}%;top:${n.y}%;transform:rotate(${n.rot}deg);background:${COLORS[n.color] || COLORS.yellow}">
+    <i class="mg"></i><span class="fav">${avatar(byId[n.user_id], 26)}</span>
+    ${n.drawing ? `<img class="fdraw ${n.body ? 'short' : ''}" src="${n.drawing}" alt="">` : ''}
+    ${n.body ? `<span class="ftxt ${n.drawing ? 'one' : ''}">${esc(n.body)}</span>` : ''}</button>`).join('');
+}
+$('notes').addEventListener('click', e => { const b = e.target.closest('.fnote'); if (b) openNote(notes.find(n => n.id === b.dataset.id)); });
+const close = () => $('modal').classList.add('hidden');
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) close(); });
+
+function openNote(n) {
+  if (!n) return;
+  const p = byId[n.user_id];
+  $('modalCard').innerHTML = `<button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 20)}</button>
+    <div class="ncard" style="background:${COLORS[n.color] || COLORS.yellow}">
+      <div class="nhead">${avatar(p, 48)}<div><b>${esc(p?.name || 'מישהו')}</b><small>${ago(n.created_at)}</small></div></div>
+      ${n.drawing ? `<img class="nbig" src="${n.drawing}" alt="">` : ''}
+      ${n.body ? `<p class="nbody">${esc(n.body)}</p>` : ''}</div>
+    ${(n.user_id === me || isAdmin) ? `<button class="btn secondary" id="ndel" type="button" style="color:#B91C1C;border-color:#EF4444">מחיקת הפתק</button>` : ''}`;
+  $('modal').classList.remove('hidden');
+  $('mx').onclick = close;
+  const d = $('ndel');
+  if (d) d.onclick = async () => {
+    if (!confirm('למחוק את הפתק?')) return;
+    const { error } = await supabase.from('fridge_notes').delete().eq('id', n.id);
+    if (error) { showToast('המחיקה נכשלה', true); return; }
+    close(); load();
+  };
+}
+
+// מיקום אקראי: מתוך כמה מועמדים בוחרים את המקום הרחוק ביותר מהפתקים הקיימים
+function pickSpot() {
+  const box = $('fridge').getBoundingClientRect();
+  const W = box.width || 390, H = box.height || 700;
+  let best = null, bestD = -1;
+  for (let i = 0; i < 40; i++) {
+    const x = 3 + Math.random() * 52, y = 3 + Math.random() * 72;
+    let dmin = 1e9;
+    for (const n of notes) dmin = Math.min(dmin, Math.hypot((n.x - x) * W / 100, (n.y - y) * H / 100));
+    if (dmin > bestD) { bestD = dmin; best = { x: +x.toFixed(1), y: +y.toFixed(1) }; }
+  }
+  return { ...best, rot: +((Math.random() * 12) - 6).toFixed(1) };
+}
+
+function openAdd() {
+  let color = 'yellow', drawing = false, hasInk = false, tool = 'pen', pen = '#1F2937', size = 4, hist = [];
+  $('modalCard').innerHTML = `<button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 20)}</button>
+    <h2 style="margin:0 0 6px;font-size:20px">פתק חדש</h2>
+    <div class="ncard" id="prev" style="background:${COLORS.yellow};padding:10px">
+      <textarea id="nt" maxlength="200" placeholder="מה רוצים לכתוב?" style="background:transparent;border:0;min-height:80px"></textarea>
+      <div id="padbox" class="hidden">
+        <canvas id="pad" width="360" height="360"></canvas>
+        <div class="ptools">
+          ${['#1F2937', '#E11D48', '#2563EB', '#16A34A', '#F59E0B', '#9333EA'].map(c => `<button type="button" class="pc" data-c="${c}" style="background:${c}"></button>`).join('')}
+          <button type="button" class="pt" data-s="3">דק</button><button type="button" class="pt" data-s="7">עבה</button>
+          <button type="button" class="pt" id="er">מחק</button><button type="button" class="pt" id="un">ביטול</button><button type="button" class="pt" id="cl">נקה</button>
+        </div></div></div>
+    <div class="who" id="cols" style="margin-top:10px;justify-content:center">${Object.entries(COLORS).map(([k, c]) => `<button type="button" class="pc big ${k === color ? 'on' : ''}" data-k="${k}" style="background:${c}" aria-label="${k}"></button>`).join('')}</div>
+    <button class="btn secondary" id="tdraw" type="button" style="margin-top:6px">✏️ הוספת ציור</button>
+    <p class="error" id="nerr" role="alert"></p>
+    <button class="btn" id="nsave" type="button">הדבקה על המקרר</button>`;
+  $('modal').classList.remove('hidden');
+  $('mx').onclick = close;
+  $('cols').onclick = e => { const b = e.target.closest('[data-k]'); if (!b) return; color = b.dataset.k; $('prev').style.background = COLORS[color]; $('cols').querySelectorAll('.pc').forEach(x => x.classList.toggle('on', x === b)); };
+  const cv = $('pad'), ctx = cv.getContext('2d');
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const snap = () => { hist.push(ctx.getImageData(0, 0, cv.width, cv.height)); if (hist.length > 25) hist.shift(); };
+  const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; };
+  let down = false, last = null;
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); down = true; snap(); last = pos(e); stroke(last, last); });
+  cv.addEventListener('pointermove', e => { if (!down) return; e.preventDefault(); const p = pos(e); stroke(last, p); last = p; });
+  const up = () => { down = false; };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  function stroke(a, b) {
+    ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+    ctx.strokeStyle = pen; ctx.lineWidth = tool === 'eraser' ? size * 4 : size;
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0] + 0.01, b[1] + 0.01); ctx.stroke(); hasInk = true;
+  }
+  const mark = () => { document.querySelectorAll('.ptools .pc').forEach(x => x.classList.toggle('on', tool === 'pen' && x.dataset.c === pen)); $('er').classList.toggle('on', tool === 'eraser'); };
+  document.querySelector('.ptools').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.c) { pen = b.dataset.c; tool = 'pen'; }
+    else if (b.dataset.s) { size = +b.dataset.s; }
+    else if (b.id === 'er') tool = tool === 'eraser' ? 'pen' : 'eraser';
+    else if (b.id === 'un') { const h = hist.pop(); if (h) ctx.putImageData(h, 0, 0); else ctx.clearRect(0, 0, cv.width, cv.height); if (!hist.length) hasInk = false; }
+    else if (b.id === 'cl') { snap(); ctx.clearRect(0, 0, cv.width, cv.height); hasInk = false; }
+    mark();
+  };
+  mark();
+  $('tdraw').onclick = () => { drawing = !drawing; $('padbox').classList.toggle('hidden', !drawing); $('nt').style.minHeight = drawing ? '44px' : '80px'; $('tdraw').textContent = drawing ? 'בלי ציור' : '✏️ הוספת ציור'; };
+  $('nsave').onclick = async () => {
+    const body = $('nt').value.trim();
+    let img = null;
+    if (drawing && hasInk) {
+      img = cv.toDataURL('image/png');
+      if (img.length > 200000) { const s = document.createElement('canvas'); s.width = s.height = 220; s.getContext('2d').drawImage(cv, 0, 0, 220, 220); img = s.toDataURL('image/png'); }
+    }
+    if (!body && !img) { $('nerr').textContent = 'כתבו משהו או צרו ציור'; return; }
+    $('nsave').disabled = true;
+    const { error } = await supabase.from('fridge_notes').insert({ user_id: me, body: body || null, drawing: img, color, ...pickSpot() });
+    if (error) { $('nerr').textContent = 'השמירה נכשלה: ' + error.message; $('nsave').disabled = false; return; }
+    close(); await load();
+  };
+}
+$('fadd').onclick = openAdd;
+supabase.rpc('purge_fridge_notes').then(() => {}, () => {});
+await load();
+setInterval(() => { if (!document.hidden && $('modal').classList.contains('hidden')) load(); }, 10000);
+</script>
+</body>
+</html>
