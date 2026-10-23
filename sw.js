@@ -1,5 +1,5 @@
 // Service worker מינימלי: שומר את קבצי המעטפת לפתיחה מהירה. נתונים תמיד מהרשת.
-const CACHE = 'habayit-v31';
+const CACHE = 'habayit-v32';
 const SHELL = ['./','./index.html','./login.html','./css/style.css','./js/splash.js','./splash.jpg','./splash.jpg','./js/config.js','./js/supabase.js','./js/common.js','./js/icons.js','./js/generate.js','./js/points.js','./tasks.html','./task.html','./admin.html','./report.html','./history.html','./chat.html','./calendar.html','./requests.html','./js/events.js','./manifest.webmanifest','./logo.png','./login-bg.jpg','./logo-text.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => {

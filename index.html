@@ -124,7 +124,7 @@ async function loadFeed() {
 (async () => {
   const { data: an } = await supabase.from('app_settings').select('value').eq('key', 'announcement').maybeSingle();
   const txt = (an?.value || '').trim();
-  document.getElementById('announce').innerHTML = txt ? `<div class="announce"><span class="trophy">${icon('trophy', 34)}</span><div><small>הודעה מיוחדת</small><b>${esc(txt)}</b></div></div>` : '';
+  document.getElementById('announce').innerHTML = txt ? `<div class="announce"><span class="trophy"><svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><defs><linearGradient id="gld" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE98A"/><stop offset=".5" stop-color="#FFC21A"/><stop offset="1" stop-color="#E08A00"/></linearGradient></defs><path d="M17 8h30v14c0 9-6.5 16-15 16S17 31 17 22z" fill="url(#gld)" stroke="#B86E00" stroke-width="2" stroke-linejoin="round"/><path d="M17 12H8c0 9 4 15 11 16M47 12h9c0 9-4 15-11 16" fill="none" stroke="#D98A00" stroke-width="3.5" stroke-linecap="round"/><path d="M28 37h8l1 9H27z" fill="url(#gld)" stroke="#B86E00" stroke-width="2" stroke-linejoin="round"/><rect x="20" y="46" width="24" height="8" rx="2.5" fill="url(#gld)" stroke="#B86E00" stroke-width="2"/><path d="M32 13l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5-3.6-3.5 5-.7z" fill="#FFF7D1" opacity=".9"/><path d="M22 12v10" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".55"/></svg></span><b>${esc(txt)}</b></div>` : '';
 })();
 document.getElementById('reqIcon').innerHTML = icon('hand-heart', 28);
 async function loadReqBadge() {
