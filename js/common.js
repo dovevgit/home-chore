@@ -87,9 +87,11 @@ export const CARD_COLORS = {
   green:  { bg: '#CDEFD2', fg: '#166534', tint: '#EEFAF0', name: 'ירוק (לימודים)' }
 };
 export const tintOf = (task) => (CARD_COLORS[task.color] || CARD_COLORS.blue).tint;
+export const ROOMS = { noa: 'החדר של נועה', maya: 'החדר של מאיה', parents: 'חדר ההורים' };
 const ART = new Set(["paw-print", "dog", "utensils", "trash-2", "bed-double", "brush-cleaning", "broom", "book-open", "bath", "footprints", "shirt", "washing-machine", "shopping-cart", "cooking-pot", "recycle", "leaf"]);
 export function iconBox(task, size = 46) {
   const c = CARD_COLORS[task.color] || CARD_COLORS.blue;
+  if (task.room && ROOMS[task.room]) return `<span class="ibox art room" style="width:${size}px;height:${size}px;background:${c.bg}"><img src="rooms/${task.room}.jpg" alt="${ROOMS[task.room]}"></span>`;
   if (ART.has(task.icon)) return `<span class="ibox art" style="width:${size}px;height:${size}px;background:${c.bg}"><img src="task/${task.icon}.png" alt="" onerror="this.onerror=null;this.src='icons/task/${task.icon}.png'"></span>`;
   return `<span class="ibox" style="width:${size}px;height:${size}px;background:${c.bg};color:${c.fg}">${icon(task.icon || 'sparkles', Math.round(size * 0.52))}</span>`;
 }
