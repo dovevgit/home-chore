@@ -18,8 +18,10 @@
 <body class="chatpage">
 <main id="msgs"><p class="empty">טוען...</p></main>
 <form class="composer" id="form" autocomplete="off">
-  <label class="cbtn" for="photo" aria-label="צירוף תמונה" id="photoBtn"></label>
+  <label class="cbtn" for="photo" aria-label="בחירת תמונה מהגלריה" id="photoBtn"></label>
   <input type="file" id="photo" accept="image/*" hidden>
+  <label class="cbtn" for="camera" aria-label="צילום תמונה" id="cameraBtn"></label>
+  <input type="file" id="camera" accept="image/*" capture="environment" hidden>
   <input id="text" type="text" placeholder="כתבו הודעה..." maxlength="500" enterkeyhint="send">
   <button class="cbtn send" id="send" type="submit" aria-label="שליחה"></button>
 </form>
@@ -31,6 +33,7 @@ const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 const me = session.user.id;
 const $ = id => document.getElementById(id);
 $('photoBtn').innerHTML = icon('image', 24);
+$('cameraBtn').innerHTML = icon('camera', 24);
 $('send').innerHTML = icon('send', 22);
 const today = ilDate(new Date());
 let list = [], urls = {}, busy = false;
@@ -91,7 +94,7 @@ $('form').addEventListener('submit', async e => {
   $('text').value = '';
   if (!(await post({ body }))) $('text').value = body;
 });
-$('photo').addEventListener('change', async e => {
+for (const id of ['photo', 'camera']) $(id).addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   try {
     showToast('מעלה תמונה...');
