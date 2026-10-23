@@ -130,6 +130,7 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
     drawer.innerHTML = `<div class="drawer-bg"></div><nav class="drawer-panel">
       <a href="index.html">${icon('house')} בית</a>
       <a href="tasks.html?me=1">${icon('list-checks')} המשימות שלי</a>
+      <a href="calendar.html">${icon('calendar-days')} לוח שנה</a>
       <a href="history.html">${icon('chart-column')} היסטוריה ודיווחים</a>
       <a href="chat.html">${icon('message-circle')} הודעות משפחתיות</a>
       ${isAdmin ? `<a href="admin.html">${icon('settings')} ניהול</a>` : ''}
@@ -144,6 +145,7 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
     nav.innerHTML = `
       <a href="index.html" class="${active === 'home' ? 'on' : ''}">${icon('house', 26)}<span>בית</span></a>
       <a href="tasks.html" class="${active === 'tasks' ? 'on' : ''}">${icon('list-checks', 26)}<span>משימות</span></a>
+      <a href="calendar.html" class="${active === 'calendar' ? 'on' : ''}">${icon('calendar-days', 26)}<span>לוח שנה</span></a>
       <a href="history.html" class="${active === 'history' ? 'on' : ''}">${icon('chart-column', 26)}<span>היסטוריה</span></a>`;
     document.body.append(nav);
     // מעבר בין לשוניות ותפריט לא מוסיף להיסטוריה: חץ אחורה מהבית יוצא מהאפליקציה
