@@ -6,7 +6,8 @@
 <title>הבית שלנו | ניהול משימות</title>
 <meta name="theme-color" content="#0D6EFD">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
@@ -16,7 +17,7 @@
 <script type="module">
 import { initPage, supabase, esc, icon, iconBox, avatar, ilDate, ilTime, toIsraelDate, CARD_COLORS } from './js/common.js';
 import { TASK_ICONS } from './js/icons.js';
-import { generateOccurrences } from './js/generate.js';
+import { generateOccurrences, syncOccurrences } from './js/generate.js';
 
 const { session, me, profiles, isAdmin } = await initPage({ title: 'ניהול משימות', back: 'index.html' });
 const main = document.getElementById('main');
@@ -181,6 +182,7 @@ function showForm(t) {
     const res = t ? await supabase.from('tasks').update(row).eq('id', t.id)
                   : await supabase.from('tasks').insert({ ...row, created_by: session.user.id });
     if (res.error) { btn.disabled = false; btn.textContent = 'שמירת משימה'; return err('השמירה נכשלה: ' + res.error.message); }
+    if (t && row.kind === 'template') { try { await syncOccurrences({ ...row, id: t.id }); } catch (_) {} }
     toast('המשימה נשמרה'); showList();
   };
 }

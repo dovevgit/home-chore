@@ -6,14 +6,15 @@
 <title>הבית שלנו | כניסה</title>
 <meta name="theme-color" content="#0D6EFD">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="login">
-<div class="hero"><span class="tile" id="houseIcon"></span><h1>הבית שלנו</h1><p>משימות הבית, ביחד ובקלות</p></div>
+<div class="hero"><img class="logo" src="logo.png" alt="הבית שלנו - משימות הבית, ביחד ובקלות"></div>
 <form class="card login-card" id="form" novalidate>
   <h2>ברוכים הבאים</h2>
   <label for="email">אימייל</label>
@@ -27,8 +28,6 @@
 <div class="ios-tip hidden" id="iosTip">להתקנה: שיתוף ← הוספה למסך הבית</div>
 <script type="module">
 import { supabase } from './js/supabase.js';
-import { icon } from './js/common.js';
-document.getElementById('houseIcon').innerHTML = icon('house', 44);
 const { data } = await supabase.auth.getSession();
 if (data.session) location.replace('index.html');
 

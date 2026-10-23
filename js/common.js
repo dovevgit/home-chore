@@ -117,7 +117,7 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
   header.className = 'bar';
   header.innerHTML = back
     ? `<a class="iconbtn" href="${back}" aria-label="חזרה">${icon('arrow-right', 24)}</a><h1>${esc(title)}</h1><span class="iconbtn ghost"></span>`
-    : `<span class="iconbtn ghost"></span><h1>${esc(title)}</h1>${menu ? `<button class="iconbtn" id="menuBtn" aria-label="תפריט">${icon('menu', 24)}</button>` : ''}`;
+    : `<span class="iconbtn ghost"></span><h1>${title === 'הבית שלנו' ? '<img class="brand" src="logo-text.png" alt="הבית שלנו">' : esc(title)}</h1>${menu ? `<button class="iconbtn" id="menuBtn" aria-label="תפריט">${icon('menu', 24)}</button>` : ''}`;
   document.body.prepend(header);
 
   if (!back) {
