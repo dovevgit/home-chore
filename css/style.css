@@ -6,7 +6,7 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%}
-body{font-family:'Assistant',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:18px;line-height:1.4;padding-bottom:96px}
+body{font-family:'Assistant',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:18px;line-height:1.4;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 .hidden{display:none!important}
 a{color:inherit}
 
@@ -18,8 +18,8 @@ header.bar h1{margin:0;font-size:24px;font-weight:800;position:absolute;inset-in
 main{padding:14px;max-width:640px;margin:0 auto}
 
 /* ===== תפריט תחתון ===== */
-.tabbar{position:fixed;inset-inline:0;bottom:0;height:76px;background:#fff;border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;z-index:20;padding:0 10px env(safe-area-inset-bottom)}
-.tabbar a,.tabbar .soon{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:14px;font-weight:600;color:var(--text2);text-decoration:none;padding:7px 22px;border-radius:16px}
+.tabbar{position:fixed;inset-inline:0;bottom:0;height:calc(76px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;z-index:20;padding:0 10px env(safe-area-inset-bottom)}
+.tabbar a,.tabbar .soon{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:14px;font-weight:600;color:var(--text2);text-decoration:none;padding:7px 16px;border-radius:16px}
 .tabbar a.on{color:var(--blue);background:var(--bg);font-weight:800}
 .tabbar .soon{opacity:.45}
 .drawer{position:fixed;inset:0;z-index:50}
@@ -125,7 +125,7 @@ body.login{padding:0;background:#3AB5FF url(../login-bg.jpg) center bottom/cover
 
 /* ===== עוד ===== */
 .back-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
-.toast{position:fixed;bottom:96px;inset-inline:16px;max-width:420px;margin-inline:auto;background:#14532D;color:#fff;padding:14px 16px;border-radius:16px;text-align:center;font-weight:700;z-index:60}
+.toast{position:fixed;bottom:calc(96px + env(safe-area-inset-bottom));inset-inline:16px;max-width:420px;margin-inline:auto;background:#14532D;color:#fff;padding:14px 16px;border-radius:16px;text-align:center;font-weight:700;z-index:60}
 .toast.err{background:#991B1B}
 .sys{background:#FFF1C2;border-radius:18px;padding:10px 14px;margin-bottom:8px;color:#5A4300;font-weight:600}
 .sys small{display:block;color:#7C3A00;font-weight:800}
@@ -151,7 +151,7 @@ header.bar h1 .brand{height:46px;width:auto;vertical-align:middle;filter:drop-sh
 .fab .badge{position:absolute;top:-4px;inset-inline-end:-4px;min-width:24px;height:24px;border-radius:12px;background:#EF4444;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 6px;border:2px solid #fff}
 
 /* ===== צ'אט ===== */
-body.chatpage{padding-bottom:88px}
+body.chatpage{padding-bottom:calc(88px + env(safe-area-inset-bottom))}
 .msg{display:flex;align-items:flex-end;gap:8px;margin-bottom:10px}
 .msg.mine{flex-direction:row-reverse}
 .bubble{max-width:78%;background:#fff;border-radius:18px;border-end-start-radius:6px;padding:8px 12px;box-shadow:0 2px 6px rgba(31,41,55,.08);overflow-wrap:anywhere}
@@ -173,3 +173,31 @@ body.chatpage{padding-bottom:88px}
 .badge2{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:11px;background:#EF4444;color:#fff;font-size:13px;font-weight:800;padding:0 6px;margin-inline-start:4px}
 .ibox.art.room img{width:100%;height:100%;object-fit:cover;border-radius:inherit;filter:none}
 .ibox.art.room{overflow:hidden}
+
+/* לוח שנה */
+.calnav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.calttl{text-align:center;display:flex;flex-direction:column}.calttl b{font-size:19px}.calttl small{color:var(--text2);font-weight:700}
+.calday{background:#fff;border-radius:16px;padding:10px 12px;margin-bottom:8px;box-shadow:0 2px 6px rgba(31,41,55,.06);border:2px solid transparent}
+.calday.today{border-color:var(--blue)}
+.caldh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}.caldh small{color:var(--text2);font-weight:700}
+.calev{display:flex;align-items:center;gap:10px;width:100%;text-align:start;font:inherit;color:inherit;border:0;border-radius:12px;padding:8px 10px;margin-bottom:6px;cursor:pointer}
+.calmain{flex:1;display:flex;flex-direction:column;min-width:0}.calmain b{font-size:16px}.calmain small{color:var(--text2);font-weight:700}
+.caltime{font-weight:800;font-size:14px;white-space:nowrap}
+.calnone{margin:0;color:var(--text2);font-size:14px}
+
+.faces{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;margin-bottom:4px}
+.face{display:flex;flex-direction:column;align-items:center;gap:3px;border:2px solid transparent;border-radius:16px;background:#fff;padding:6px 8px;font:inherit;color:var(--text2);cursor:pointer;box-shadow:0 2px 6px rgba(31,41,55,.06);flex:none}
+.face small{font-size:12px;font-weight:700}.face.on{border-color:var(--blue);color:var(--blue)}
+.face.all{min-width:58px;justify-content:center;font-weight:800;font-size:15px}
+.mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:#fff;border-radius:18px;padding:8px;box-shadow:0 2px 6px rgba(31,41,55,.06)}
+.mh{text-align:center;font-weight:800;font-size:13px;color:var(--text2);padding:4px 0}
+.mc{position:relative;aspect-ratio:1/1.15;border:0;border-radius:12px;background:var(--bg);font:inherit;color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:4px 2px;cursor:pointer;min-width:0}
+.mc.off{background:transparent;cursor:default}
+.mc.has{background:#EAF3FF}
+.mc.today{outline:2.5px solid var(--blue);outline-offset:-1px}
+.mc .dn{font-weight:800;font-size:15px}
+.stack{display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;direction:ltr;min-height:22px}
+.stack .avatar{border-width:2px;margin-inline:-4px;box-shadow:0 0 0 1.5px #fff;font-size:10px}
+.stack .more{font-size:11px;font-weight:800;color:var(--blue);margin-inline-start:6px}
+.card.mine{margin-top:12px}
+.minehd{display:flex;align-items:center;gap:12px;margin-bottom:10px}.minehd b{font-size:18px;display:block}.minehd small{color:var(--text2);font-weight:700}
