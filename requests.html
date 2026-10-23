@@ -43,22 +43,25 @@ const dueText = r => {
 const STAT = { open: ['ממתינה', 's-waiting'], taken: ['נלקחה', 's-progress'], done: ['בוצעה', 's-done'], declined: ['נדחתה', 's-overdue'] };
 
 function card(r) {
-  const from = byId[r.created_by], to = r.to_user ? byId[r.to_user] : null, taker = r.taken_by ? byId[r.taken_by] : null;
+  const from = byId[r.created_by], taker = r.taken_by ? byId[r.taken_by] : null;
+  const list = r.to_users && r.to_users.length ? r.to_users : null;
+  const toTxt = list ? list.map(id => byId[id]?.name || '').filter(Boolean).join(' ו') : 'כולם';
+  const declined = (r.declined_by || []).includes(me);
   const [lab, cls] = STAT[r.status];
-  const mineToTake = r.status === 'open' && ((r.to_user === null && r.created_by !== me) || r.to_user === me);
+  const mineToTake = r.status === 'open' && r.created_by !== me && (!list || list.includes(me)) && !declined;
   const canDone = r.status === 'taken' && (r.taken_by === me || r.created_by === me || isAdmin);
   const btns = [
     mineToTake ? `<button type="button" class="rbtn go" data-a="take" data-id="${r.id}">אני לוקח/ת</button>` : '',
-    mineToTake && r.to_user === me ? `<button type="button" class="rbtn" data-a="decline" data-id="${r.id}">לא יכול/ה</button>` : '',
+    mineToTake && list ? `<button type="button" class="rbtn" data-a="decline" data-id="${r.id}">לא יכול/ה</button>` : '',
     canDone ? `<button type="button" class="rbtn go" data-a="done" data-id="${r.id}">בוצע</button>` : '',
     r.status === 'taken' && r.taken_by === me ? `<button type="button" class="rbtn" data-a="release" data-id="${r.id}">ביטול לקיחה</button>` : ''
   ].join('');
   return `<div class="req ${r.status}">
     <div class="reqtop">${avatar(from, 40)}<div class="reqmain"><b>${esc(r.body)}</b>
-      <small>מאת ${esc(from?.name || '')} · ל${to ? esc(to.name) : 'כולם'}${dueText(r) ? ' · ' + esc(dueText(r)) : ''}</small></div>
+      <small>מאת ${esc(from?.name || '')} · ל${esc(toTxt)}${dueText(r) ? ' · ' + esc(dueText(r)) : ''}</small></div>
       <button type="button" class="reqdel" data-a="del" data-id="${r.id}" aria-label="מחיקה">${icon('trash-2', 18)}</button></div>
     <div class="reqfoot"><span class="chip ${cls}">${lab}${taker && r.status !== 'open' ? ' · ' + esc(taker.name) : ''}</span>
-      <span class="pts" dir="ltr">+${r.points}</span>${btns}</div></div>`;
+      <span class="pts" dir="ltr">+${r.points}</span>${declined && r.status === 'open' ? '<span class="chip s-overdue">דחית</span>' : ''}${btns}</div></div>`;
 }
 function draw() {
   const open = rows.filter(r => r.status === 'open' || r.status === 'taken');
@@ -85,7 +88,7 @@ async function act(a, id) {
     res = await supabase.from('requests').delete().eq('id', id);
   } else {
     const patch = a === 'take' ? { status: 'taken', taken_by: me }
-      : a === 'decline' ? { status: 'declined' }
+      : a === 'decline' ? (() => { const dec = [...new Set([...(r.declined_by || []), me])]; const all = r.to_users && r.to_users.length && r.to_users.every(id => dec.includes(id)); return all ? { declined_by: dec, status: 'declined' } : { declined_by: dec }; })()
       : a === 'release' ? { status: 'open', taken_by: null }
       : { status: 'done', done_at: new Date().toISOString() };
     res = await supabase.from('requests').update(patch).eq('id', id);
@@ -102,7 +105,8 @@ function openForm() {
     <h2 style="margin:0 0 10px;font-size:20px">בקשה חדשה</h2>
     <form id="rf" class="form">
       <label for="rb">מה צריך?</label><textarea id="rb" maxlength="300" placeholder="למשל: לקחת אותי לחוג מחר"></textarea>
-      <label for="rt">למי</label><select class="sel" id="rt" style="width:100%"><option value="">כולם</option>${users.filter(u => u.id !== me).map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>
+      <label>למי (אפשר לבחור כמה)</label>
+      <div class="who" id="who"><button type="button" class="whochip on" data-w="">כולם</button>${users.filter(u => u.id !== me).map(u => `<button type="button" class="whochip" data-w="${u.id}">${avatar(u, 26)} ${esc(u.name)}</button>`).join('')}</div>
       <div style="display:flex;gap:10px"><div style="flex:1"><label for="rd">תאריך (אופציונלי)</label><input type="date" id="rd" dir="ltr"></div>
         <div style="flex:1"><label for="rh">שעה (אופציונלי)</label><input type="time" id="rh" dir="ltr"></div></div>
       <p class="note" style="text-align:start">מי שיבצע את הבקשה יקבל ${pts} נקודות.</p>
@@ -111,12 +115,19 @@ function openForm() {
     </form>`;
   $('modal').classList.remove('hidden');
   $('mx').onclick = close;
+  $('who').onclick = (e) => {
+    const b = e.target.closest('.whochip'); if (!b) return;
+    const chips = [...$('who').querySelectorAll('.whochip')];
+    if (b.dataset.w === '') chips.forEach(c => c.classList.toggle('on', c === b));
+    else { b.classList.toggle('on'); chips[0].classList.remove('on'); }
+    if (!chips.some(c => c.classList.contains('on'))) chips[0].classList.add('on');
+  };
   $('rf').onsubmit = async (x) => {
     x.preventDefault();
     const body = $('rb').value.trim();
     if (!body) return ($('rerr').textContent = 'צריך לכתוב מה הבקשה');
     $('rsave').disabled = true;
-    const { error } = await supabase.from('requests').insert({ created_by: me, status: 'open', to_user: $('rt').value || null, body,
+    const { error } = await supabase.from('requests').insert({ created_by: me, status: 'open', to_users: (ids => ids.length ? ids : null)([...$('who').querySelectorAll('.whochip.on')].map(c => c.dataset.w).filter(Boolean)), body,
       due_date: $('rd').value || null, due_time: $('rh').value || null, points: pts });
     if (error) { $('rsave').disabled = false; return ($('rerr').textContent = 'השליחה נכשלה: ' + error.message); }
     close(); showToast('הבקשה נשלחה'); load();

@@ -22,7 +22,7 @@
     <div class="stats" id="stats"><p class="empty" style="flex:1">טוען...</p></div></div>
   <div class="sec-title">בני המשפחה</div>
   <div class="family" id="family"></div>
-  <a class="reqcard" href="requests.html" id="reqCard"><span id="reqIcon"></span><b>בקשות מיוחדות</b><span id="reqBadge"></span></a>
+  <a class="reqcard" href="requests.html" id="reqCard"><span id="reqIcon"></span><b id="reqTitle">אין בקשות</b><span id="reqBadge"></span></a>
   <div class="sec-head"><div class="sec-title">המשימות של היום</div><a href="tasks.html">הצג הכל</a></div>
   <div id="tasks"><p class="empty">טוען...</p></div>
   <div class="sec-head"><div class="sec-title">מה קרה לאחרונה</div><a href="history.html">הצג הכל</a></div>
@@ -122,10 +122,11 @@ async function loadFeed() {
 }
 document.getElementById('reqIcon').innerHTML = icon('hand-heart', 28);
 async function loadReqBadge() {
-  const { data } = await supabase.from('requests').select('id,created_by,to_user,status').in('status', ['open', 'taken']);
-  const n = (data || []).filter(r => r.status === 'open' && ((r.to_user === null && r.created_by !== me?.id) || r.to_user === me?.id)).length;
-  document.getElementById('reqCard').classList.toggle('glow', (data || []).length > 0);
-  document.getElementById('reqCard').classList.toggle('alert', n > 0);
+  const { data } = await supabase.from('requests').select('id,created_by,to_users,status,declined_by').in('status', ['open', 'taken']);
+  const n = (data || []).filter(r => r.status === 'open' && r.created_by !== me?.id && (!r.to_users || !r.to_users.length || r.to_users.includes(me?.id)) && !(r.declined_by || []).includes(me?.id)).length;
+  const any = (data || []).length > 0;   // כל בקשה פתוחה שאני רואה, גם שלי
+  document.getElementById('reqCard').classList.toggle('alert', any);
+  document.getElementById('reqTitle').textContent = any ? 'בקשות מיוחדות' : 'אין בקשות';
   document.getElementById('reqBadge').innerHTML = n ? `<span class="badge2">${n > 9 ? '9+' : n}</span>` : '';
 }
 loadReqBadge();
