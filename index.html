@@ -22,6 +22,7 @@
     <div class="stats" id="stats"><p class="empty" style="flex:1">טוען...</p></div></div>
   <div class="sec-title">בני המשפחה</div>
   <div class="family" id="family"></div>
+  <a class="reqcard" href="requests.html" id="reqCard"><span id="reqIcon"></span><b>בקשות מיוחדות</b><span id="reqBadge"></span></a>
   <div class="sec-head"><div class="sec-title">המשימות של היום</div><a href="tasks.html">הצג הכל</a></div>
   <div id="tasks"><p class="empty">טוען...</p></div>
   <div class="sec-head"><div class="sec-title">מה קרה לאחרונה</div><a href="history.html">הצג הכל</a></div>
@@ -119,6 +120,14 @@ async function loadFeed() {
   const l = document.getElementById('chatLink');
   l.innerHTML = 'לצ\'אט המלא' + (n ? ` <span class="badge2">${n > 9 ? '9+' : n}</span>` : '');
 }
+document.getElementById('reqIcon').innerHTML = icon('hand-heart', 28);
+async function loadReqBadge() {
+  const { data } = await supabase.from('requests').select('id,created_by,to_user,status').eq('status', 'open');
+  const n = (data || []).filter(r => (r.to_user === null && r.created_by !== me?.id) || r.to_user === me?.id).length;
+  document.getElementById('reqBadge').innerHTML = n ? `<span class="badge2">${n > 9 ? '9+' : n}</span>` : '';
+}
+loadReqBadge();
+setInterval(() => { if (!document.hidden) loadReqBadge(); }, 15000);
 await loadFeed();
 try {
   supabase.channel('feed-home')

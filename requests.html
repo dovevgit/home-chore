@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | בקשות</title>
+<meta name="theme-color" content="#0D6EFD">
+<meta name="color-scheme" content="only light">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <div class="sec-title" style="margin-top:0">בקשות פתוחות</div>
+  <div id="open"><p class="empty">טוען...</p></div>
+  <button class="btn" id="add" type="button">בקשה חדשה</button>
+  <div class="sec-title" style="margin-top:22px">נסגרו לאחרונה</div>
+  <div id="closed"></div>
+</main>
+<div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
+<script type="module">
+import { initPage, supabase, esc, icon, avatar, ilDate, ilTime, dow, showToast } from './js/common.js';
+const { session, profiles, isAdmin } = await initPage({ active: 'requests', title: 'בקשות מיוחדות', back: 'index.html' });
+const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
+const users = profiles.filter(p => p.is_user);
+const me = session.user.id;
+const $ = id => document.getElementById(id);
+const WD = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const today = ilDate(new Date());
+let rows = [], pts = 5, busy = false;
+
+const dueText = r => {
+  if (!r.due_date && !r.due_time) return '';
+  const d = r.due_date ? (r.due_date === today ? 'היום' : `יום ${WD[dow(r.due_date)]} ${r.due_date.split('-').reverse().slice(0, 2).join('.')}`) : '';
+  return [d, r.due_time ? r.due_time.slice(0, 5) : ''].filter(Boolean).join(' · ');
+};
+const STAT = { open: ['ממתינה', 's-waiting'], taken: ['נלקחה', 's-progress'], done: ['בוצעה', 's-done'], declined: ['נדחתה', 's-overdue'] };
+
+function card(r) {
+  const from = byId[r.created_by], to = r.to_user ? byId[r.to_user] : null, taker = r.taken_by ? byId[r.taken_by] : null;
+  const [lab, cls] = STAT[r.status];
+  const mineToTake = r.status === 'open' && ((r.to_user === null && r.created_by !== me) || r.to_user === me);
+  const canDone = r.status === 'taken' && (r.taken_by === me || r.created_by === me || isAdmin);
+  const btns = [
+    mineToTake ? `<button type="button" class="rbtn go" data-a="take" data-id="${r.id}">אני לוקח/ת</button>` : '',
+    mineToTake && r.to_user === me ? `<button type="button" class="rbtn" data-a="decline" data-id="${r.id}">לא יכול/ה</button>` : '',
+    canDone ? `<button type="button" class="rbtn go" data-a="done" data-id="${r.id}">בוצע</button>` : '',
+    r.status === 'taken' && r.taken_by === me ? `<button type="button" class="rbtn" data-a="release" data-id="${r.id}">ביטול לקיחה</button>` : ''
+  ].join('');
+  return `<div class="req ${r.status}">
+    <div class="reqtop">${avatar(from, 40)}<div class="reqmain"><b>${esc(r.body)}</b>
+      <small>מאת ${esc(from?.name || '')} · ל${to ? esc(to.name) : 'כולם'}${dueText(r) ? ' · ' + esc(dueText(r)) : ''}</small></div>
+      <button type="button" class="reqdel" data-a="del" data-id="${r.id}" aria-label="מחיקה">${icon('trash-2', 18)}</button></div>
+    <div class="reqfoot"><span class="chip ${cls}">${lab}${taker && r.status !== 'open' ? ' · ' + esc(taker.name) : ''}</span>
+      <span class="pts" dir="ltr">+${r.points}</span>${btns}</div></div>`;
+}
+function draw() {
+  const open = rows.filter(r => r.status === 'open' || r.status === 'taken');
+  const closed = rows.filter(r => r.status === 'done' || r.status === 'declined').slice(0, 15);
+  $('open').innerHTML = open.length ? open.map(card).join('') : '<p class="empty">אין בקשות פתוחות</p>';
+  $('closed').innerHTML = closed.length ? closed.map(card).join('') : '<p class="empty">עוד אין בקשות שנסגרו</p>';
+}
+async function load() {
+  const [{ data, error }, st] = await Promise.all([
+    supabase.from('requests').select('*').order('created_at', { ascending: false }).limit(100),
+    supabase.from('app_settings').select('*').eq('key', 'request_points').maybeSingle()
+  ]);
+  if (st?.data?.value) pts = parseInt(st.data.value) || pts;
+  if (error) { $('open').innerHTML = '<p class="empty">לא הצלחנו לטעון בקשות</p>'; return; }
+  rows = data || []; draw();
+}
+
+async function act(a, id) {
+  const r = rows.find(x => x.id === id); if (!r || busy) return;
+  busy = true;
+  let res;
+  if (a === 'del') {
+    if (!confirm('למחוק את הבקשה?')) { busy = false; return; }
+    res = await supabase.from('requests').delete().eq('id', id);
+  } else {
+    const patch = a === 'take' ? { status: 'taken', taken_by: me }
+      : a === 'decline' ? { status: 'declined' }
+      : a === 'release' ? { status: 'open', taken_by: null }
+      : { status: 'done', done_at: new Date().toISOString() };
+    res = await supabase.from('requests').update(patch).eq('id', id);
+  }
+  busy = false;
+  if (res.error) return showToast('הפעולה נכשלה, אפשר לנסות שוב', true);
+  if (a === 'done') showToast(`הבקשה סומנה כבוצעה, ${byId[r.taken_by]?.name || ''} קיבל/ה ${r.points} נקודות`);
+  load();
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (b) act(b.dataset.a, b.dataset.id); });
+
+function openForm() {
+  $('modalCard').innerHTML = `<button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 22)}</button>
+    <h2 style="margin:0 0 10px;font-size:20px">בקשה חדשה</h2>
+    <form id="rf" class="form">
+      <label for="rb">מה צריך?</label><textarea id="rb" maxlength="300" placeholder="למשל: לקחת אותי לחוג מחר"></textarea>
+      <label for="rt">למי</label><select class="sel" id="rt" style="width:100%"><option value="">כולם</option>${users.filter(u => u.id !== me).map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>
+      <div style="display:flex;gap:10px"><div style="flex:1"><label for="rd">תאריך (אופציונלי)</label><input type="date" id="rd" dir="ltr"></div>
+        <div style="flex:1"><label for="rh">שעה (אופציונלי)</label><input type="time" id="rh" dir="ltr"></div></div>
+      <p class="note" style="text-align:start">מי שיבצע את הבקשה יקבל ${pts} נקודות.</p>
+      <p class="error" id="rerr" role="alert"></p>
+      <button class="btn" id="rsave" type="submit">שליחת בקשה</button>
+    </form>`;
+  $('modal').classList.remove('hidden');
+  $('mx').onclick = close;
+  $('rf').onsubmit = async (x) => {
+    x.preventDefault();
+    const body = $('rb').value.trim();
+    if (!body) return ($('rerr').textContent = 'צריך לכתוב מה הבקשה');
+    $('rsave').disabled = true;
+    const { error } = await supabase.from('requests').insert({ created_by: me, status: 'open', to_user: $('rt').value || null, body,
+      due_date: $('rd').value || null, due_time: $('rh').value || null, points: pts });
+    if (error) { $('rsave').disabled = false; return ($('rerr').textContent = 'השליחה נכשלה: ' + error.message); }
+    close(); showToast('הבקשה נשלחה'); load();
+  };
+}
+const close = () => $('modal').classList.add('hidden');
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) close(); });
+$('add').onclick = openForm;
+try { localStorage.setItem('reqSeen', new Date().toISOString()); } catch (_) {}
+await load();
+setInterval(() => { if (!document.hidden && $('modal').classList.contains('hidden')) load(); }, 10000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+</script>
+</body>
+</html>
