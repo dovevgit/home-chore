@@ -18,6 +18,7 @@
 <body>
 <main>
   <div id="announce"></div>
+  <div id="bday"></div>
   <div id="leader"></div>
   <div class="card" style="margin-bottom:8px"><div class="sec-title" style="margin:0">סיכום היום</div>
     <div class="stats" id="stats"><p class="empty" style="flex:1">טוען...</p></div></div>
@@ -35,6 +36,7 @@
     <button class="cbtn send" id="qsend" type="submit" aria-label="שליחה"></button>
   </form>
 </main>
+<div class="modal hidden" id="pmodal"><div class="modal-card" id="pcard"></div></div>
 <script type="module">
 import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, pointsFor, ilDate, ilTime, addDays, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
 import { weeklyPoints } from './js/points.js';
@@ -55,7 +57,60 @@ document.getElementById('leader').innerHTML = leaders.length ? `
 const { data: awayRows } = await supabase.from('absences').select('user_id,reason').lte('start_date', today).gte('end_date', today);
 const away = Object.fromEntries((awayRows || []).map(r => [r.user_id, r.reason]));
 document.getElementById('family').innerHTML = users.map(p => `
-  <div class="avn ${away[p.id] ? 'away' : ''}">${avatar(p, 54)}<span class="avname">${esc(p.name)}</span>${away[p.id] ? `<span class="abs-tag">נעדר/ת</span><span class="apts abs-why">${esc(away[p.id])}</span>` : `<span class="apts" dir="ltr">${pointsByUser[p.id] || 0}</span>`}</div>`).join('');
+  <button type="button" class="avn ${away[p.id] ? 'away' : ''}" data-uid="${p.id}" aria-label="הכרטיס של ${esc(p.name)}">${avatar(p, 54)}<span class="avname">${esc(p.name)}</span>${away[p.id] ? `<span class="abs-tag">נעדר/ת</span><span class="apts abs-why">${esc(away[p.id])}</span>` : `<span class="apts" dir="ltr">${pointsByUser[p.id] || 0}</span>`}</button>`).join('');
+
+/* --- כרטיס משתמש --- */
+const dmy = d => d.split('-').reverse().join('.');
+const dayNum = d => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 864e5; };
+function bdayInfo(b) {
+  if (!b) return null;
+  const [by, bm, bd] = b.split('-').map(Number), [ty] = today.split('-').map(Number);
+  let next = `${ty}-${String(bm).padStart(2, '0')}-${String(bd).padStart(2, '0')}`;
+  if (next < today) next = `${ty + 1}-${String(bm).padStart(2, '0')}-${String(bd).padStart(2, '0')}`;
+  const days = dayNum(next) - dayNum(today);
+  return { days, age: Number(next.slice(0, 4)) - by };
+}
+const bdayText = i => i.days === 0 ? `היום יום ההולדת! (גיל ${i.age})` : `בעוד ${i.days === 1 ? 'יום אחד' : i.days + ' ימים'} · יום הולדת ${i.age}`;
+const pm = document.getElementById('pmodal'), pc = document.getElementById('pcard');
+pm.addEventListener('click', e => { if (e.target === pm) pm.classList.add('hidden'); });
+function openCard(uid, editMode = false) {
+  const p = byId[uid]; if (!p) return;
+  const bi = bdayInfo(p.birthday);
+  const x = `<button type="button" class="modal-x" id="px" aria-label="סגירה">${icon('x', 20)}</button>`;
+  const head = `<div class="pbig">${avatar(p, 150)}<h2>${esc(p.name)}</h2></div>`;
+  if (editMode) {
+    pc.innerHTML = `${x}${head}
+      <label for="pBd">תאריך יום הולדת</label><input id="pBd" type="date" value="${p.birthday || ''}" dir="ltr">
+      <label for="pAbout">מה כדאי לדעת</label><textarea id="pAbout" maxlength="400" placeholder="למשל: אלרגיה, אוכל אהוב, מידת נעליים">${esc(p.about || '')}</textarea>
+      <p class="error" id="pErr" role="alert"></p>
+      <button class="btn" id="pSave" type="button">שמירה</button>
+      <button class="btn secondary" id="pCancel" type="button">ביטול</button>`;
+    pc.querySelector('#pCancel').onclick = () => openCard(uid);
+    pc.querySelector('#pSave').onclick = async () => {
+      const row = { birthday: pc.querySelector('#pBd').value || null, about: pc.querySelector('#pAbout').value.trim() || null };
+      pc.querySelector('#pSave').disabled = true;
+      const { error } = await supabase.from('profiles').update(row).eq('id', uid);
+      if (error) { pc.querySelector('#pErr').textContent = 'השמירה נכשלה: ' + error.message; pc.querySelector('#pSave').disabled = false; return; }
+      Object.assign(p, row); showBday(); openCard(uid);
+    };
+  } else {
+    pc.innerHTML = `${x}${head}
+      ${away[uid] ? `<div class="pline"><span class="abs-tag">נעדר/ת</span> ${esc(away[uid])}</div>` : ''}
+      <div class="pline">${p.birthday ? `<b>🎂 ${dmy(p.birthday)}</b><br><small>${esc(bdayText(bi))}</small>` : '<small>עוד לא הוזן יום הולדת</small>'}</div>
+      <div class="pline"><b>מה כדאי לדעת</b><br>${p.about ? esc(p.about).replace(/\n/g, '<br>') : '<small>עוד לא נכתב</small>'}</div>
+      <div class="pline"><b>נקודות השבוע:</b> <span dir="ltr">${pointsByUser[uid] || 0}</span></div>
+      ${me?.role === 'admin' ? `<button class="btn secondary" id="pEdit" type="button">${icon('pencil', 18)} עריכה</button>` : ''}`;
+    pc.querySelector('#pEdit')?.addEventListener('click', () => openCard(uid, true));
+  }
+  pc.querySelector('#px').onclick = () => pm.classList.add('hidden');
+  pm.classList.remove('hidden');
+}
+document.getElementById('family').addEventListener('click', e => { const b = e.target.closest('[data-uid]'); if (b) openCard(b.dataset.uid); });
+function showBday() {
+  const t = users.filter(u => bdayInfo(u.birthday)?.days === 0);
+  document.getElementById('bday').innerHTML = t.length ? t.map(u => `<div class="bdaycard">🎂 יום הולדת שמח, ${esc(u.name)}! 🎉</div>`).join('') : '';
+}
+showBday();
 
 /* --- המשימות של היום וסיכום --- */
 const { data: all, error: tErr } = await supabase.from('tasks').select('*').eq('kind', 'occurrence').eq('active', true).gte('occurrence_date', addDays(today, -1)).lte('occurrence_date', today);
