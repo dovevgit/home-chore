@@ -257,3 +257,5 @@ button.avn{background:none;border:0;font:inherit;color:inherit;cursor:pointer;pa
 .pline{background:#F3F8FF;border-radius:14px;padding:10px 14px;margin-bottom:8px;font-size:17px;line-height:1.4;overflow-wrap:anywhere}
 .pline small{color:var(--text2);font-size:15px}
 .bdaycard{margin:0 0 12px;padding:14px;text-align:center;font-size:22px;font-weight:800;color:#7A1F5C;background:linear-gradient(135deg,#FFE0F0,#FFD1A8);border:3px solid #FF7AC8;border-radius:20px}
+.bdi{font-size:14px;margin-inline-start:2px}
+.calbday{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#FFE0F0,#FFD1A8);border:2px solid #FF7AC8;border-radius:14px;padding:8px 12px;margin-bottom:8px;color:#7A1F5C;font-size:17px}
