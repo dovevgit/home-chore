@@ -249,3 +249,11 @@ textarea{width:100%;min-height:80px;border:1.5px solid var(--field);border-radiu
 .abs-why{max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .grid2>div{min-width:0}
 input[type=date],input[type=time]{min-width:0;max-width:100%}
+
+/* כרטיס משתמש */
+button.avn{background:none;border:0;font:inherit;color:inherit;cursor:pointer;padding:0}
+.pbig{display:flex;flex-direction:column;align-items:center;gap:6px;margin:6px 0 10px}
+.pbig h2{margin:0;font-size:26px}
+.pline{background:#F3F8FF;border-radius:14px;padding:10px 14px;margin-bottom:8px;font-size:17px;line-height:1.4;overflow-wrap:anywhere}
+.pline small{color:var(--text2);font-size:15px}
+.bdaycard{margin:0 0 12px;padding:14px;text-align:center;font-size:22px;font-weight:800;color:#7A1F5C;background:linear-gradient(135deg,#FFE0F0,#FFD1A8);border:3px solid #FF7AC8;border-radius:20px}
