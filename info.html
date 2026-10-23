@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | מידע משפחתי</title>
+<meta name="theme-color" content="#0D6EFD">
+<meta name="color-scheme" content="only light">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <div id="list"><p class="empty">טוען...</p></div>
+  <button class="btn hidden" id="add" type="button">הוספת מידע</button>
+</main>
+<div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
+<script type="module">
+import { initPage, supabase, esc, icon, showToast } from './js/common.js';
+const { isAdmin } = await initPage({ active: 'info', title: 'מידע משפחתי', back: 'index.html' });
+const $ = id => document.getElementById(id);
+const CATS = [['wifi', 'סיסמאות ו-Wi-Fi', 'wifi'], ['phones', 'טלפונים חשובים', 'phone'], ['health', 'רופאים ובריאות', 'info'], ['school', 'בית ספר וחוגים', 'info'], ['home', 'בית ורכב', 'info'], ['other', 'אחר', 'info']];
+const KINDS = [['text', 'טקסט'], ['phone', 'טלפון (עם כפתור חיוג)'], ['secret', 'סיסמה (מוסתרת עד לחיצה)']];
+let rows = [], shown = new Set();
+
+async function load() {
+  const { data, error } = await supabase.from('info_items').select('*').order('created_at');
+  if (error) { $('list').innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; return; }
+  rows = data || []; render();
+}
+function render() {
+  if (!rows.length) { $('list').innerHTML = `<p class="empty">${isAdmin ? 'עוד אין מידע. לחצו על "הוספת מידע".' : 'עוד לא נוסף מידע.'}</p>`; return; }
+  $('list').innerHTML = CATS.map(([k, name, ic]) => {
+    const items = rows.filter(r => (CATS.some(c => c[0] === r.category) ? r.category : 'other') === k);
+    if (!items.length) return '';
+    return `<div class="icat">${icon(ic, 20)} ${name}</div>` + items.map(r => {
+      const hidden = r.kind === 'secret' && !shown.has(r.id);
+      const tel = String(r.value).replace(/[^\d+]/g, '');
+      return `<div class="iitem"><div class="imain"><div class="ititle">${esc(r.title)}</div>
+        <div class="ival">${hidden ? '••••••••' : esc(r.value)}</div>${r.note ? `<div class="inote">${esc(r.note)}</div>` : ''}</div>
+        ${r.kind === 'secret' ? `<button class="ibtn" data-eye="${r.id}" type="button" aria-label="הצגה">${icon('eye', 20)}</button>` : ''}
+        ${r.kind === 'phone' ? `<a class="ibtn call" href="tel:${esc(tel)}" aria-label="חיוג">${icon('phone', 20)}</a>` : ''}
+        <button class="ibtn" data-copy="${r.id}" type="button" aria-label="העתקה">${icon('copy', 20)}</button>
+        ${isAdmin ? `<button class="ibtn" data-edit="${r.id}" type="button" aria-label="עריכה">${icon('pencil', 20)}</button>` : ''}</div>`;
+    }).join('');
+  }).join('');
+}
+$('list').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.eye) { const id = b.dataset.eye; shown.has(id) ? shown.delete(id) : shown.add(id); render(); }
+  else if (b.dataset.copy) {
+    const r = rows.find(x => x.id === b.dataset.copy); if (!r) return;
+    try { await navigator.clipboard.writeText(r.value); }
+    catch (_) { const t = document.createElement('textarea'); t.value = r.value; document.body.append(t); t.select(); try { document.execCommand('copy'); } catch (_) {} t.remove(); }
+    showToast('הועתק');
+  } else if (b.dataset.edit) openForm(rows.find(x => x.id === b.dataset.edit));
+});
+function close() { $('modal').classList.add('hidden'); }
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) close(); });
+function openForm(r) {
+  r = r || { category: 'wifi', kind: 'text', title: '', value: '', note: '' };
+  $('modalCard').innerHTML = `<button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 20)}</button>
+    <h2 style="margin:0 0 6px">${r.id ? 'עריכת מידע' : 'הוספת מידע'}</h2>
+    <label>קטגוריה</label><select id="fCat">${CATS.map(c => `<option value="${c[0]}" ${c[0] === r.category ? 'selected' : ''}>${c[1]}</option>`).join('')}</select>
+    <label>כותרת</label><input id="fTitle" maxlength="80" value="${esc(r.title)}" placeholder="למשל: Wi-Fi של הבית">
+    <label>סוג</label><select id="fKind">${KINDS.map(c => `<option value="${c[0]}" ${c[0] === r.kind ? 'selected' : ''}>${c[1]}</option>`).join('')}</select>
+    <label>התוכן</label><input id="fVal" maxlength="500" value="${esc(r.value)}" placeholder="סיסמה, מספר טלפון...">
+    <label>הערה (לא חובה)</label><input id="fNote" maxlength="200" value="${esc(r.note || '')}">
+    <button class="btn" id="fSave" type="button">שמירה</button>
+    ${r.id ? `<button class="btn secondary" id="fDel" type="button" style="color:#991B1B;border-color:#991B1B">מחיקה</button>` : ''}`;
+  $('modal').classList.remove('hidden');
+  $('mx').onclick = close;
+  $('fSave').onclick = async () => {
+    const row = { category: $('fCat').value, title: $('fTitle').value.trim(), kind: $('fKind').value, value: $('fVal').value.trim(), note: $('fNote').value.trim() || null };
+    if (!row.title || !row.value) { showToast('חסרה כותרת או תוכן', true); return; }
+    $('fSave').disabled = true;
+    const { error } = r.id ? await supabase.from('info_items').update(row).eq('id', r.id) : await supabase.from('info_items').insert(row);
+    if (error) { showToast('השמירה נכשלה', true); $('fSave').disabled = false; return; }
+    close(); await load();
+  };
+  if (r.id) $('fDel').onclick = async () => {
+    if (!confirm('למחוק את המידע הזה?')) return;
+    const { error } = await supabase.from('info_items').delete().eq('id', r.id);
+    if (error) { showToast('המחיקה נכשלה', true); return; }
+    close(); await load();
+  };
+}
+if (isAdmin) { $('add').classList.remove('hidden'); $('add').onclick = () => openForm(); }
+await load();
+</script>
+</body>
+</html>
