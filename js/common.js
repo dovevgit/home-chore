@@ -87,8 +87,10 @@ export const CARD_COLORS = {
   green:  { bg: '#CDEFD2', fg: '#166534', tint: '#EEFAF0', name: 'ירוק (לימודים)' }
 };
 export const tintOf = (task) => (CARD_COLORS[task.color] || CARD_COLORS.blue).tint;
+const ART = new Set(["paw-print", "dog", "utensils", "trash-2", "bed-double", "brush-cleaning", "broom", "book-open", "bath", "footprints", "shirt", "washing-machine", "shopping-cart", "cooking-pot", "recycle", "leaf"]);
 export function iconBox(task, size = 46) {
   const c = CARD_COLORS[task.color] || CARD_COLORS.blue;
+  if (ART.has(task.icon)) return `<span class="ibox art" style="width:${size}px;height:${size}px;background:${c.bg}"><img src="icons/task/${task.icon}.png" alt=""></span>`;
   return `<span class="ibox" style="width:${size}px;height:${size}px;background:${c.bg};color:${c.fg}">${icon(task.icon || 'sparkles', Math.round(size * 0.52))}</span>`;
 }
 
