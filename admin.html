@@ -17,7 +17,7 @@
 <body>
 <main id="main"><p class="empty">טוען...</p></main>
 <script type="module">
-import { initPage, supabase, esc, icon, iconBox, avatar, ilDate, ilTime, toIsraelDate, CARD_COLORS, ROOMS } from './js/common.js';
+import { initPage, supabase, esc, icon, iconBox, avatar, ilDate, ilTime, toIsraelDate, addDays, dow, CARD_COLORS, ROOMS } from './js/common.js';
 import { TASK_ICONS } from './js/icons.js';
 import { findConflicts } from './js/events.js';
 import { generateOccurrences, syncOccurrences } from './js/generate.js';
@@ -46,11 +46,43 @@ const repeatLabel = t => {
 let view = 'list';
 let editing = null;
 
+/* ============ העדרויות: טעינה ובדיקות ============ */
+const todayStr = ilDate(new Date());
+const dm = d => d.split('-').reverse().slice(0, 2).join('.');
+let absences = [];
+async function loadAbsences() {
+  const { data } = await supabase.from('absences').select('*').gte('end_date', todayStr).order('start_date');
+  absences = data || [];
+}
+const absentOn = (uid, date) => absences.find(a => a.user_id === uid && a.start_date <= date && date <= a.end_date);
+const tabsHtml = on => `<div class="tabs"><button id="tList" class="${on === 'list' ? 'on' : ''}">משימות</button><button id="tAdd" class="${on === 'form' ? 'on' : ''}">הוספה</button><button id="tAbs" class="${on === 'abs' ? 'on' : ''}">העדרויות</button></div>`;
+const wireTabs = () => {
+  const l = document.getElementById('tList'), a = document.getElementById('tAdd'), b = document.getElementById('tAbs');
+  if (l) l.onclick = showList; if (a) a.onclick = () => showForm(null); if (b) b.onclick = showAbsences;
+};
+// משימות שעדיין משויכות לנעדר בתקופת ההעדרות
+async function affectedTasks(ab) {
+  const { data } = await supabase.from('tasks').select('*').eq('active', true);
+  const out = [];
+  for (const t of data || []) {
+    const mine = (t.slots || []).filter(sl => sl.assignee_id === ab.user_id);
+    if (!mine.length) continue;
+    if (t.kind === 'occurrence') {
+      if (mine.some(sl => { const d = sl.due_at ? ilDate(new Date(sl.due_at)) : t.occurrence_date; return d >= ab.start_date && d <= ab.end_date && d >= todayStr; })) out.push(t);
+    } else if (t.kind === 'template') {
+      let hit = false;
+      for (let d = ab.start_date > todayStr ? ab.start_date : todayStr; d <= ab.end_date && !hit; d = addDays(d, 1)) hit = t.repeat === 'daily' || (t.repeat === 'weekly' && dow(d) === t.weekday);
+      if (hit) out.push(t);
+    }
+  }
+  return out;
+}
+
 /* ============ רשימה ============ */
 async function showList() {
   view = 'list'; editing = null;
   main.innerHTML = `
-    <div class="tabs"><button class="on" id="tList">רשימת משימות</button><button id="tAdd">הוספת משימה</button></div>
+    ${tabsHtml('list')}
     <div class="filters">
       <select id="fMember"><option value="">כל המשפחה</option>${users.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>
       <select id="fRepeat"><option value="">יומי ושבועי</option><option value="daily">יומי</option><option value="weekly">שבועי</option><option value="once">חד-פעמי</option></select>
@@ -72,7 +104,7 @@ async function showList() {
     <div class="sec-title" style="margin-top:22px">היסטוריית דיווחים</div>
     <button class="btn secondary" id="wipeRep" type="button" style="width:100%;margin-top:0;color:#B91C1C;border-color:#EF4444">מחיקת כל הדיווחים וההיסטוריה</button>
     <p class="note">מוחק את כל דיווחי המשימות (כולל תמונות הדיווח) ומאפס את הנקודות. אי אפשר לשחזר. מתאים לניקוי אחרי בדיקות. אפשר גם למחוק דיווח בודד: במסך ההיסטוריה לוחצים על דיווח.</p>`;
-  document.getElementById('tAdd').onclick = () => showForm(null);
+  wireTabs();
   document.getElementById('gen').onclick = async (e) => {
     e.target.disabled = true;
     try { const r = await generateOccurrences(session.user.id); toast(`נוצרו ${r.created} משימות (${r.skipped} כבר היו קיימות${r.past ? `, ${r.past} דולגו כי השעה שלהן להיום עברה` : ''})`); }
@@ -161,7 +193,7 @@ function showForm(t) {
   const slotsInit = (v.slots || []).map(s => ({ assignee_id: s.assignee_id, time: s.due_time || (s.due_at ? ilTime(new Date(s.due_at)) : '18:00') }));
   const dateInit = once && t.slots?.[0]?.due_at ? ilDate(new Date(t.slots[0].due_at)) : (t?.occurrence_date || ilDate(new Date()));
   main.innerHTML = `
-    <div class="tabs"><button id="tList">רשימת משימות</button><button class="on">${t ? 'עריכת משימה' : 'הוספת משימה'}</button></div>
+    ${tabsHtml('form')}
     <form class="card flat" id="f" novalidate>
       <label for="title">שם המשימה</label><input id="title" value="${esc(v.title)}" placeholder="למשל: להוציא את טוי">
       <label for="desc">תיאור</label><div class="field"><textarea id="desc">${esc(v.description)}</textarea></div>
@@ -196,7 +228,7 @@ function showForm(t) {
       <p class="error" id="err" role="alert"></p>
       <button class="btn" id="save" type="submit">שמירת משימה</button>
     </form>`;
-  document.getElementById('tList').onclick = showList;
+  wireTabs();
   const $ = id => document.getElementById(id);
   let slots = slotsInit;
   const allowedUsers = () => {
@@ -207,20 +239,28 @@ function showForm(t) {
     if (r === 'parents') { const a = users.filter(u => u.name === 'אמא' || u.name === 'אבא'); if (a.length) return a; }
     return users;
   };
+  const checkDate = () => {
+    const r = $('repeat').value;
+    if (r === 'once') return $('date').value || todayStr;
+    if (r === 'weekly') { const wd = parseInt($('weekday').value); for (let k = 0; k < 7; k++) { const d = addDays(todayStr, k); if (dow(d) === wd) return d; } }
+    return todayStr;
+  };
   const drawSlots = () => {
     const n = Math.max(1, Math.min(10, parseInt($('times').value) || 1));
     const allowed = allowedUsers();
-    while (slots.length < n) slots.push({ assignee_id: allowed[0]?.id || '', time: '18:00' });
+    const cd = checkDate();
+    const free = allowed.filter(u => !absentOn(u.id, cd));
+    while (slots.length < n) slots.push({ assignee_id: (free[0] || allowed[0])?.id || '', time: '18:00' });
     slots.length = n;
-    slots.forEach(s => { if (!allowed.some(u => u.id === s.assignee_id)) s.assignee_id = allowed[0]?.id || ''; });
+    slots.forEach(s => { if (!allowed.some(u => u.id === s.assignee_id)) s.assignee_id = (free[0] || allowed[0])?.id || ''; });
     $('slots').innerHTML = slots.map((s, i) => `<div class="slotrow">
-      <select class="sel" data-a="${i}" ${allowed.length === 1 ? 'disabled' : ''}>${allowed.map(u => `<option value="${u.id}" ${s.assignee_id === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select>
+      <select class="sel" data-a="${i}" ${allowed.length === 1 ? 'disabled' : ''}>${allowed.map(u => { const ab = absentOn(u.id, cd); return `<option value="${u.id}" ${s.assignee_id === u.id ? 'selected' : ''} ${ab && s.assignee_id !== u.id ? 'disabled' : ''}>${esc(u.name)}${ab ? ` (נעדר/ת: ${esc(ab.reason)})` : ''}</option>`; }).join('')}</select>
       <input type="time" data-t="${i}" value="${s.time}" dir="ltr"></div>`).join('');
     $('slots').querySelectorAll('[data-a]').forEach(el => el.onchange = () => slots[el.dataset.a].assignee_id = el.value);
     $('slots').querySelectorAll('[data-t]').forEach(el => el.onchange = () => slots[el.dataset.t].time = el.value);
   };
   const toggle = () => { $('weekdayBox').classList.toggle('hidden', $('repeat').value !== 'weekly'); $('dateBox').classList.toggle('hidden', $('repeat').value !== 'once'); };
-  $('times').oninput = drawSlots; $('room').onchange = drawSlots; $('repeat').onchange = toggle; toggle(); drawSlots();
+  $('times').oninput = drawSlots; $('room').onchange = drawSlots; $('date').onchange = drawSlots; $('weekday').onchange = drawSlots; $('repeat').onchange = () => { toggle(); drawSlots(); }; toggle(); drawSlots();
 
   $('f').onsubmit = async (e) => {
     e.preventDefault();
@@ -234,6 +274,8 @@ function showForm(t) {
     if (!users.length) return err('אין משתמשים לשיוך');
     if (slots.some(s => !s.assignee_id || !s.time)) return err('צריך אחראי ושעה לכל חזרה');
     if (repeat === 'once' && !$('date').value) return err('צריך לבחור תאריך');
+    const cd2 = checkDate();
+    for (const s of slots) { const ab = absentOn(s.assignee_id, cd2); if (ab) return err(`${byId[s.assignee_id]?.name || 'המשתמש'} נעדר/ת (${ab.reason}) עד ${dm(ab.end_date)}. בחרו אחראי אחר.`); }
     const base = {
       title, description: $('desc').value.trim() || null, tips: $('tips').value.trim() || null,
       icon: $('icon').value, color: $('color').value, subject_id: $('subject').value || null, room: $('room').value || null,
@@ -266,6 +308,73 @@ function showForm(t) {
   };
 }
 
+/* ============ העדרויות ============ */
+async function showAbsences(editAb) {
+  view = 'abs';
+  await loadAbsences();
+  const a = editAb && editAb.id ? editAb : { user_id: users[0]?.id, start_date: todayStr, end_date: todayStr, reason: '' };
+  main.innerHTML = `${tabsHtml('abs')}
+    <div class="sec-title" style="margin-top:0">העדרויות פעילות ועתידיות</div>
+    <div id="absRows">${absences.length ? absences.map(x => `<div class="row-item">${avatar(byId[x.user_id], 44)}
+      <div class="tmain"><b>${esc(byId[x.user_id]?.name || '')} · ${esc(x.reason)}</b><small>${x.start_date === x.end_date ? dm(x.start_date) : `${dm(x.start_date)} עד ${dm(x.end_date)}`}${x.start_date <= todayStr ? ' · כעת' : ''}</small></div>
+      <button class="sqbtn edit" data-e="${x.id}" aria-label="עריכה">${icon('pencil', 20)}</button>
+      <button class="sqbtn del" data-d="${x.id}" aria-label="מחיקה">${icon('trash-2', 20)}</button></div>`).join('') : '<p class="empty">אין העדרויות</p>'}</div>
+    <form class="card flat" id="af" novalidate style="margin-top:12px">
+      <div class="sec-title" style="margin-top:0">${a.id ? 'עריכת העדרות' : 'העדרות חדשה'}</div>
+      <label for="aUser">מי נעדר/ת</label>
+      <select class="sel" id="aUser" style="width:100%">${users.map(u => `<option value="${u.id}" ${a.user_id === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select>
+      <div class="grid2"><div><label for="aFrom">מתאריך</label><input id="aFrom" type="date" value="${a.start_date}" dir="ltr"></div>
+      <div><label for="aTo">עד תאריך (כולל)</label><input id="aTo" type="date" value="${a.end_date}" dir="ltr"></div></div>
+      <label for="aReason">סיבה</label>
+      <input id="aReason" maxlength="80" list="aReasons" value="${esc(a.reason)}" placeholder="למשל: חולה, טיול, אצל סבתא">
+      <datalist id="aReasons"><option value="חולה"><option value="טיול"><option value="אצל סבתא"><option value="נסיעה"><option value="מחנה"></datalist>
+      <p class="error" id="aErr" role="alert"></p>
+      <button class="btn" id="aSave" type="submit">שמירה</button>
+      ${a.id ? '<button class="btn secondary" id="aCancel" type="button">ביטול עריכה</button>' : ''}
+    </form>
+    <p class="note">בזמן העדרות אי אפשר לשייך לאדם משימות. אם כבר יש לו משימות בתקופה, תוצג רשימה כדי שתשנו אחראי.</p>`;
+  wireTabs();
+  if (a.id) document.getElementById('aCancel').onclick = () => showAbsences();
+  document.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { showAbsences(absences.find(x => x.id === b.dataset.e)); window.scrollTo(0, document.body.scrollHeight); });
+  document.querySelectorAll('[data-d]').forEach(b => b.onclick = async () => {
+    if (!confirm('למחוק את ההעדרות?')) return;
+    const { error } = await supabase.from('absences').delete().eq('id', b.dataset.d);
+    toast(error ? 'המחיקה נכשלה' : 'ההעדרות נמחקה', !!error); showAbsences();
+  });
+  document.getElementById('af').onsubmit = async (e) => {
+    e.preventDefault();
+    const err = m => { document.getElementById('aErr').textContent = m; return false; };
+    const row = { user_id: document.getElementById('aUser').value, start_date: document.getElementById('aFrom').value, end_date: document.getElementById('aTo').value, reason: document.getElementById('aReason').value.trim() };
+    if (!row.start_date || !row.end_date) return err('צריך לבחור תאריכים');
+    if (row.end_date < row.start_date) return err('תאריך הסיום לפני תאריך ההתחלה');
+    if (!row.reason) return err('צריך להזין סיבה');
+    const btn = document.getElementById('aSave'); btn.disabled = true;
+    const res = a.id ? await supabase.from('absences').update(row).eq('id', a.id) : await supabase.from('absences').insert(row);
+    if (res.error) { btn.disabled = false; return err('השמירה נכשלה: ' + res.error.message); }
+    toast('ההעדרות נשמרה');
+    let aff = []; try { aff = await affectedTasks(row); } catch (ex) { console.error("affected", ex); }
+    await showAbsences();
+    if (aff.length) showAffected(row, aff);
+  };
+}
+function showAffected(ab, list) {
+  const m = document.createElement('div'); m.className = 'modal';
+  m.innerHTML = `<div class="modal-card"><button type="button" class="modal-x" aria-label="סגירה">${icon('x', 20)}</button>
+    <h2 style="margin:0 0 6px">יש משימות שצריך להעביר</h2>
+    <p class="note" style="text-align:start">ל${esc(byId[ab.user_id]?.name || '')} יש עדיין משימות בתקופת ההעדרות. לחצו על משימה כדי לשנות את האחראי.</p>
+    ${list.map(t => `<div class="row-item">${iconBox(t, 40)}<div class="tmain"><b>${esc(t.title)}</b><small>${esc(repeatLabel(t))}${t.kind === 'occurrence' && t.template_id ? ' · של היום/השבוע' : ''}</small></div>
+      <button class="sqbtn edit" data-t="${t.id}" aria-label="עריכה">${icon('pencil', 20)}</button></div>`).join('')}</div>`;
+  document.body.append(m);
+  m.querySelector('.modal-x').onclick = () => m.remove();
+  m.querySelectorAll('[data-t]').forEach(b => b.onclick = async () => {
+    let t = list.find(x => x.id === b.dataset.t);
+    // משימה שנוצרה מתבנית: עורכים את התבנית (היא תעדכן את המשימות של היום והשבוע)
+    if (t.kind === 'occurrence' && t.template_id) { const { data } = await supabase.from('tasks').select('*').eq('id', t.template_id).maybeSingle(); if (data) t = data; }
+    m.remove(); showForm(t);
+  });
+}
+
+await loadAbsences();
 showList();
 </script>
 </body>

@@ -52,8 +52,10 @@ document.getElementById('leader').innerHTML = leaders.length ? `
     <div style="flex:1"><div class="lsub">המוביל השבועי</div><div class="ltitle">${leaders.map(l => esc(l.name)).join(' ו')}</div>
     <div class="lsub"><span dir="ltr">${best}</span> נקודות</div></div>
     <span class="crown">${icon('crown', 26)}</span></div>` : '';
+const { data: awayRows } = await supabase.from('absences').select('user_id,reason').lte('start_date', today).gte('end_date', today);
+const away = Object.fromEntries((awayRows || []).map(r => [r.user_id, r.reason]));
 document.getElementById('family').innerHTML = users.map(p => `
-  <div class="avn">${avatar(p, 54)}<span class="avname">${esc(p.name)}</span><span class="apts" dir="ltr">${pointsByUser[p.id] || 0}</span></div>`).join('');
+  <div class="avn ${away[p.id] ? 'away' : ''}">${avatar(p, 54)}<span class="avname">${esc(p.name)}</span>${away[p.id] ? `<span class="abs-tag">נעדר/ת</span><span class="apts abs-why">${esc(away[p.id])}</span>` : `<span class="apts" dir="ltr">${pointsByUser[p.id] || 0}</span>`}</div>`).join('');
 
 /* --- המשימות של היום וסיכום --- */
 const { data: all, error: tErr } = await supabase.from('tasks').select('*').eq('kind', 'occurrence').eq('active', true).gte('occurrence_date', addDays(today, -1)).lte('occurrence_date', today);
