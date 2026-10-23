@@ -13,56 +13,42 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<header class="bar">
-  <h1>הבית שלנו</h1>
-  <button class="btn secondary" id="logout" type="button">התנתקות</button>
-</header>
 <main>
   <p id="hello" class="help" style="text-align:start"></p>
   <h2>המשימות של היום</h2>
   <div id="tasks"><p class="empty">טוען...</p></div>
+  <p style="text-align:center"><a href="tasks.html" style="color:#0A58CA;font-weight:700">הצג הכל</a></p>
   <h2>הודעות אחרונות</h2>
   <div id="feed"><p class="empty">טוען...</p></div>
 </main>
 <script type="module">
-import { supabase } from './js/supabase.js';
-
-const { data: { session } } = await supabase.auth.getSession();
-if (!session) { location.replace('login.html'); }
-
-document.getElementById('logout').addEventListener('click', async () => {
-  await supabase.auth.signOut();
-  location.replace('login.html');
-});
-
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-// התאריך של היום בשעון ישראל, בפורמט YYYY-MM-DD
-const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
-
-const { data: me } = await supabase.from('profiles').select('name').eq('id', session.user.id).maybeSingle();
+import { initPage, supabase, esc, icon, iconBox, ilDate, ilTime, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
+const { me } = await initPage({ active: 'home', title: 'הבית שלנו' });
 document.getElementById('hello').textContent = me ? `שלום, ${me.name}` : '';
 
-const { data: tasks, error: tErr } = await supabase
-  .from('tasks').select('id,title,points,times_required')
-  .eq('kind', 'occurrence').eq('occurrence_date', today).eq('active', true)
-  .order('title');
+const today = ilDate(new Date());
+const { data: all, error: tErr } = await supabase.from('tasks').select('*').eq('kind', 'occurrence').eq('active', true).eq('occurrence_date', today);
 const tEl = document.getElementById('tasks');
 if (tErr) tEl.innerHTML = '<p class="empty">לא הצלחנו לטעון משימות</p>';
-else if (!tasks.length) tEl.innerHTML = '<p class="empty">אין משימות להיום</p>';
-else tEl.innerHTML = tasks.map(t => `
-  <div class="task"><div><b>${esc(t.title)}</b>${t.times_required > 1 ? ` <span dir="ltr">×${t.times_required}</span>` : ''}</div>
-  <div><span class="chip">ממתין</span> <span class="pts" dir="ltr">+${t.points}</span></div></div>`).join('');
+else if (!all.length) tEl.innerHTML = '<p class="empty">אין משימות להיום</p>';
+else {
+  const counts = await reportCounts(all.map(t => t.id));
+  const rows = all.map(t => ({ t, c: counts[t.id] || 0 })).map(r => ({ ...r, status: deriveStatus(r.t, r.c), slot: nextSlot(r.t, r.c) }))
+    .filter(r => r.status !== 'done')
+    .sort((a, b) => (b.status === 'overdue') - (a.status === 'overdue') || new Date(a.slot?.due_at || '2100-01-01') - new Date(b.slot?.due_at || '2100-01-01'))
+    .slice(0, 3);
+  tEl.innerHTML = rows.length ? rows.map(({ t, status, slot }) => `
+    <a class="tcard" href="task.html?id=${t.id}">${iconBox(t)}
+      <div class="tmain"><b>${esc(t.title)}</b><small>${slot?.due_at ? `<span dir="ltr">${ilTime(new Date(slot.due_at))}</span>` : ''}</small></div>
+      <span class="chip ${STATUS[status].cls}">${icon(STATUS[status].icon, 14)} ${STATUS[status].label}</span></a>`).join('')
+    : '<p class="empty">כל משימות היום בוצעו</p>';
+}
 
-const { data: feed, error: fErr } = await supabase
-  .from('feed').select('id,type,body,created_at')
-  .in('type', ['system','chat']).order('created_at', { ascending: false }).limit(5);
+const { data: feed, error: fErr } = await supabase.from('feed').select('id,type,body,created_at').in('type', ['system', 'chat']).order('created_at', { ascending: false }).limit(5);
 const fEl = document.getElementById('feed');
 if (fErr) fEl.innerHTML = '<p class="empty">לא הצלחנו לטעון הודעות</p>';
 else if (!feed.length) fEl.innerHTML = '<p class="empty">אין הודעות עדיין</p>';
-else fEl.innerHTML = feed.map(m => `
-  <div class="sys"><small>${m.type === 'system' ? 'הודעת מערכת' : 'הודעה'} · ${new Date(m.created_at).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Jerusalem'})}</small>${esc(m.body)}</div>`).join('');
-
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+else fEl.innerHTML = feed.map(m => `<div class="sys"><small>${m.type === 'system' ? 'הודעת מערכת' : 'הודעה'} · ${ilTime(new Date(m.created_at))}</small>${esc(m.body)}</div>`).join('');
 </script>
 </body>
 </html>

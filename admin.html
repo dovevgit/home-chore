@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | ניהול משימות</title>
+<meta name="theme-color" content="#0D6EFD">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main id="main"><p class="empty">טוען...</p></main>
+<script type="module">
+import { initPage, supabase, esc, icon, iconBox, avatar, ilDate, ilTime, toIsraelDate, CARD_COLORS } from './js/common.js';
+import { TASK_ICONS } from './js/icons.js';
+import { generateOccurrences } from './js/generate.js';
+
+const { session, me, profiles, isAdmin } = await initPage({ title: 'ניהול משימות', back: 'index.html' });
+const main = document.getElementById('main');
+if (!isAdmin) {
+  main.innerHTML = '<p class="empty">מסך זה זמין למנהל בלבד</p>';
+  throw new Error('not admin');
+}
+const users = profiles.filter(p => p.is_user);
+const WEEKDAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
+
+function toast(msg, err = false) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (err ? ' err' : ''); t.textContent = msg;
+  document.body.append(t); setTimeout(() => t.remove(), 3500);
+}
+const repeatLabel = t => {
+  const n = t.times_required > 1 ? ` · ${t.times_required} פעמים` : '';
+  return (t.repeat === 'daily' ? 'יומי' + (t.times_required > 1 ? ` · ${t.times_required} פעמים ביום` : '')
+        : t.repeat === 'weekly' ? `שבועי · יום ${WEEKDAYS[t.weekday ?? 0]}` : 'חד-פעמי') ;
+};
+
+let view = 'list';
+let editing = null;
+
+/* ============ רשימה ============ */
+async function showList() {
+  view = 'list'; editing = null;
+  main.innerHTML = `
+    <div class="tabs"><button class="on" id="tList">רשימת משימות</button><button id="tAdd">הוספת משימה</button></div>
+    <div class="filters">
+      <select id="fMember"><option value="">כל המשפחה</option>${users.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>
+      <select id="fRepeat"><option value="">יומי ושבועי</option><option value="daily">יומי</option><option value="weekly">שבועי</option><option value="once">חד-פעמי</option></select>
+    </div>
+    <div id="rows"><p class="empty">טוען...</p></div>
+    <button class="btn secondary" id="gen" type="button" style="width:100%;margin-top:12px">ליצור עכשיו את משימות היום והשבוע</button>
+    <p class="note">בהמשך זה יקרה אוטומטית כל בוקר. עד אז לוחצים כאן.</p>`;
+  document.getElementById('tAdd').onclick = () => showForm(null);
+  document.getElementById('gen').onclick = async (e) => {
+    e.target.disabled = true;
+    try { const r = await generateOccurrences(session.user.id); toast(`נוצרו ${r.created} משימות (${r.skipped} כבר היו קיימות)`); }
+    catch (err) { toast('היצירה נכשלה: ' + (err.message || err), true); }
+    e.target.disabled = false;
+  };
+  const { data, error } = await supabase.from('tasks').select('*').eq('active', true)
+    .or('kind.eq.template,and(kind.eq.occurrence,template_id.is.null)').order('created_at', { ascending: false });
+  const el = document.getElementById('rows');
+  if (error) { el.innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; return; }
+  const draw = () => {
+    const m = document.getElementById('fMember').value, r = document.getElementById('fRepeat').value;
+    const list = data.filter(t => (!m || (t.slots || []).some(s => s.assignee_id === m)) && (!r || t.repeat === r));
+    el.innerHTML = list.length ? list.map(t => `<div class="row-item">${iconBox(t, 44)}
+      <div class="tmain"><b>${esc(t.title)}</b><small>${esc(repeatLabel(t))}</small></div>
+      <button class="sqbtn edit" data-edit="${t.id}" aria-label="עריכה">${icon('pencil', 20)}</button>
+      <button class="sqbtn del" data-del="${t.id}" aria-label="מחיקה">${icon('trash-2', 20)}</button></div>`).join('')
+      : '<p class="empty">אין משימות</p>';
+    el.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => showForm(data.find(t => t.id === b.dataset.edit)));
+    el.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+      const t = data.find(x => x.id === b.dataset.del);
+      if (!confirm(`למחוק את "${t.title}"? ההיסטוריה נשמרת.`)) return;
+      const { error: e1 } = await supabase.from('tasks').update({ active: false }).eq('id', t.id);
+      if (e1) { toast('המחיקה נכשלה', true); return; }
+      if (t.kind === 'template') await supabase.from('tasks').update({ active: false }).eq('template_id', t.id).gte('occurrence_date', ilDate(new Date()));
+      toast('המשימה הוסרה'); showList();
+    });
+  };
+  document.getElementById('fMember').onchange = document.getElementById('fRepeat').onchange = draw;
+  draw();
+}
+
+/* ============ טופס הוספה / עריכה ============ */
+function showForm(t) {
+  view = 'form'; editing = t;
+  const v = t || { title: '', description: '', tips: '', icon: 'sparkles', color: 'blue', points: 10, requires_photo: false,
+    late_fraction: 0.5, penalty_points: 10, times_required: 1, repeat: 'daily', weekday: 5, remind_before_minutes: 15,
+    reminder_text: '', overdue_text: '', slots: [], subject_id: null };
+  const once = t?.kind === 'occurrence';
+  const slotsInit = (v.slots || []).map(s => ({ assignee_id: s.assignee_id, time: s.due_time || (s.due_at ? ilTime(new Date(s.due_at)) : '18:00') }));
+  const dateInit = once && t.slots?.[0]?.due_at ? ilDate(new Date(t.slots[0].due_at)) : (t?.occurrence_date || ilDate(new Date()));
+  main.innerHTML = `
+    <div class="tabs"><button id="tList">רשימת משימות</button><button class="on">${t ? 'עריכת משימה' : 'הוספת משימה'}</button></div>
+    <form class="card flat" id="f" novalidate>
+      <label for="title">שם המשימה</label><input id="title" value="${esc(v.title)}" placeholder="למשל: להוציא את טוי">
+      <label for="desc">תיאור</label><div class="field"><textarea id="desc">${esc(v.description)}</textarea></div>
+      <label for="tips">טיפים (אופציונלי)</label><div class="field"><textarea id="tips">${esc(v.tips)}</textarea></div>
+      <div class="grid2">
+        <div><label for="icon">אייקון</label><select class="sel" id="icon" style="width:100%">${TASK_ICONS.map(([k, n]) => `<option value="${k}" ${v.icon === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+        <div><label for="color">צבע</label><select class="sel" id="color" style="width:100%">${Object.entries(CARD_COLORS).map(([k, c]) => `<option value="${k}" ${v.color === k ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div>
+      </div>
+      <label for="subject">נושא המשימה (אופציונלי)</label>
+      <select class="sel" id="subject" style="width:100%"><option value="">ללא</option>${profiles.map(p => `<option value="${p.id}" ${v.subject_id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
+      <div class="grid2">
+        <div><label for="points">נקודות</label><input id="points" type="number" min="0" inputmode="numeric" value="${v.points}"></div>
+        <div><label for="penalty">קנס אם לא בוצעה</label><input id="penalty" type="number" min="0" inputmode="numeric" value="${v.penalty_points}"></div>
+      </div>
+      <label for="late">ביצוע באיחור (חלק מהנקודות)</label>
+      <select class="sel" id="late" style="width:100%">${[[0,'0% (בלי נקודות)'],[0.25,'25%'],[0.5,'50%'],[0.75,'75%'],[1,'100%']].map(([k, n]) => `<option value="${k}" ${Number(v.late_fraction) === k ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      <div class="switch"><span><b>חובה לצלם</b></span><input id="photo" type="checkbox" ${v.requires_photo ? 'checked' : ''}></div>
+      <label for="repeat">סוג משימה</label>
+      <select class="sel" id="repeat" style="width:100%" ${t ? 'disabled' : ''}>
+        <option value="daily" ${v.repeat === 'daily' ? 'selected' : ''}>יומית (חוזרת כל יום)</option>
+        <option value="weekly" ${v.repeat === 'weekly' ? 'selected' : ''}>שבועית (חוזרת כל שבוע)</option>
+        <option value="once" ${v.repeat === 'once' ? 'selected' : ''}>חד-פעמית</option></select>
+      <div id="weekdayBox"><label for="weekday">יום המועד</label><select class="sel" id="weekday" style="width:100%">${WEEKDAYS.map((n, i) => `<option value="${i}" ${v.weekday === i ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      <div id="dateBox"><label for="date">תאריך</label><input id="date" type="date" value="${dateInit}" dir="ltr"></div>
+      <label for="times">מספר חזרות</label><input id="times" type="number" min="1" max="10" inputmode="numeric" value="${v.times_required}">
+      <label>אחראי ושעה לכל חזרה</label><div id="slots"></div>
+      <label for="remind">תזכורת לפני המועד (בדקות)</label><input id="remind" type="number" min="0" inputmode="numeric" value="${v.remind_before_minutes ?? ''}">
+      <label for="rtext">נוסח תזכורת</label><input id="rtext" value="${esc(v.reminder_text)}" placeholder="הגיע הזמן להוציא את טוי">
+      <label for="otext">נוסח הודעת איחור</label><input id="otext" value="${esc(v.overdue_text)}" placeholder="טוי עדיין לא יצא החוצה">
+      <p class="error" id="err" role="alert"></p>
+      <button class="btn" id="save" type="submit">שמירת משימה</button>
+    </form>`;
+  document.getElementById('tList').onclick = showList;
+  const $ = id => document.getElementById(id);
+  let slots = slotsInit;
+  const drawSlots = () => {
+    const n = Math.max(1, Math.min(10, parseInt($('times').value) || 1));
+    while (slots.length < n) slots.push({ assignee_id: users[0]?.id || '', time: '18:00' });
+    slots.length = n;
+    $('slots').innerHTML = slots.map((s, i) => `<div class="slotrow">
+      <select class="sel" data-a="${i}">${users.map(u => `<option value="${u.id}" ${s.assignee_id === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select>
+      <input type="time" data-t="${i}" value="${s.time}" dir="ltr"></div>`).join('');
+    $('slots').querySelectorAll('[data-a]').forEach(el => el.onchange = () => slots[el.dataset.a].assignee_id = el.value);
+    $('slots').querySelectorAll('[data-t]').forEach(el => el.onchange = () => slots[el.dataset.t].time = el.value);
+  };
+  const toggle = () => { $('weekdayBox').classList.toggle('hidden', $('repeat').value !== 'weekly'); $('dateBox').classList.toggle('hidden', $('repeat').value !== 'once'); };
+  $('times').oninput = drawSlots; $('repeat').onchange = toggle; toggle(); drawSlots();
+
+  $('f').onsubmit = async (e) => {
+    e.preventDefault();
+    const err = msg => { $('err').textContent = msg; return false; };
+    $('err').textContent = '';
+    const title = $('title').value.trim();
+    const points = parseInt($('points').value);
+    const repeat = $('repeat').value;
+    if (!title) return err('צריך להזין שם למשימה');
+    if (Number.isNaN(points) || points < 0) return err('צריך להזין נקודות');
+    if (!users.length) return err('אין משתמשים לשיוך');
+    if (slots.some(s => !s.assignee_id || !s.time)) return err('צריך אחראי ושעה לכל חזרה');
+    if (repeat === 'once' && !$('date').value) return err('צריך לבחור תאריך');
+    const base = {
+      title, description: $('desc').value.trim() || null, tips: $('tips').value.trim() || null,
+      icon: $('icon').value, color: $('color').value, subject_id: $('subject').value || null,
+      points, penalty_points: parseInt($('penalty').value) || 0, late_fraction: Number($('late').value),
+      requires_photo: $('photo').checked, times_required: slots.length,
+      remind_before_minutes: $('remind').value === '' ? null : parseInt($('remind').value),
+      reminder_text: $('rtext').value.trim() || null, overdue_text: $('otext').value.trim() || null
+    };
+    let row;
+    if (repeat === 'once') {
+      const date = $('date').value;
+      const old = t?.slots || [];
+      row = { ...base, kind: 'occurrence', template_id: null, repeat: 'once', weekday: null, occurrence_date: date,
+        slots: slots.map((s, i) => ({ n: i + 1, assignee_id: s.assignee_id, due_at: toIsraelDate(date, s.time).toISOString(),
+          reminded: old[i]?.reminded || false, overdue_notified: old[i]?.overdue_notified || false, penalized: old[i]?.penalized || false })) };
+    } else {
+      row = { ...base, kind: 'template', repeat, weekday: repeat === 'weekly' ? parseInt($('weekday').value) : null,
+        slots: slots.map(s => ({ assignee_id: s.assignee_id, due_time: s.time })) };
+    }
+    const btn = $('save'); btn.disabled = true; btn.textContent = 'שומר...';
+    const res = t ? await supabase.from('tasks').update(row).eq('id', t.id)
+                  : await supabase.from('tasks').insert({ ...row, created_by: session.user.id });
+    if (res.error) { btn.disabled = false; btn.textContent = 'שמירת משימה'; return err('השמירה נכשלה: ' + res.error.message); }
+    toast('המשימה נשמרה'); showList();
+  };
+}
+
+showList();
+</script>
+</body>
+</html>
