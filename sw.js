@@ -1,5 +1,5 @@
 // Service worker מינימלי: שומר את קבצי המעטפת לפתיחה מהירה. נתונים תמיד מהרשת.
-const CACHE = 'habayit-v16';
+const CACHE = 'habayit-v17';
 const SHELL = ['./','./index.html','./login.html','./css/style.css','./js/config.js','./js/supabase.js','./js/common.js','./js/icons.js','./js/generate.js','./js/points.js','./tasks.html','./task.html','./admin.html','./report.html','./history.html','./chat.html','./manifest.webmanifest','./logo.png','./login-bg.jpg','./logo-text.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
@@ -9,6 +9,6 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return; // Supabase וגופנים: ישר לרשת
-  e.respondWith(fetch(e.request).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
+  e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
     .catch(() => caches.match(e.request)));
 });
