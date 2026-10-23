@@ -43,8 +43,8 @@ document.getElementById('leader').innerHTML = leaders.length ? `
     <div style="flex:1"><div class="lsub">המוביל השבועי</div><div class="ltitle">${leaders.map(l => esc(l.name)).join(' ו')}</div>
     <div class="lsub"><span dir="ltr">${best}</span> נקודות</div></div>
     <span class="crown">${icon('crown', 26)}</span></div>` : '';
-document.getElementById('family').innerHTML = profiles.map(p => `
-  <div class="avn">${avatar(p, 54)}<span class="avname">${esc(p.name)}</span><span class="apts" dir="ltr">${p.is_user ? (pointsByUser[p.id] || 0) : ''}</span></div>`).join('');
+document.getElementById('family').innerHTML = users.map(p => `
+  <div class="avn">${avatar(p, 54)}<span class="avname">${esc(p.name)}</span><span class="apts" dir="ltr">${pointsByUser[p.id] || 0}</span></div>`).join('');
 
 /* --- המשימות של היום וסיכום --- */
 const { data: all, error: tErr } = await supabase.from('tasks').select('*').eq('kind', 'occurrence').eq('active', true).gte('occurrence_date', addDays(today, -1)).lte('occurrence_date', today);
