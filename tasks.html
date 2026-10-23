@@ -87,7 +87,7 @@ function render() {
     return `<a class="tcard" href="task.html?id=${t.id}" style="background:${tintOf(t)}">
       <span class="sdot ${S.cls}">${status === 'done' ? icon('check', 14) : ''}</span>
       ${iconBox(t)}
-      <div class="tmain"><b>${esc(t.title)}${multi ? ` <span dir="ltr">(${c}/${t.times_required})</span>` : ''}</b><small>${due ? `<span dir="ltr">${esc(due)}</span>` : ''}</small></div>
+      <div class="tmain"><b>${esc(t.title)}${multi || c > t.times_required ? ` <span dir="ltr">(${c}/${t.times_required})</span>` : ''}</b><small>${due ? `<span dir="ltr">${esc(due)}</span>` : ''}</small></div>
       <span class="chip ${S.cls}">${icon(S.icon === 'clock' ? 'hourglass' : S.icon, 13)} ${S.label}</span>
       ${avatar(byId[(status === 'done' || c > 0) ? lastBy[t.id] : slot?.assignee_id], 36)}</a>`;
   }).join('');

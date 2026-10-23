@@ -52,7 +52,7 @@ else {
   }).join('')}</div>` : '';
   main.innerHTML = `
     <div class="card flat dhead" style="background:${tintOf(t)}">${iconBox(t, 56)}
-      <div style="flex:1"><div class="dtitle">${esc(t.title)}${t.times_required > 1 ? ` <span dir="ltr">(${c}/${t.times_required})</span>` : ''}</div></div></div>
+      <div style="flex:1"><div class="dtitle">${esc(t.title)}${t.times_required > 1 || c > t.times_required ? ` <span dir="ltr">(${c}/${t.times_required})</span>` : ''}</div></div></div>
     ${t.room && ROOMS[t.room] ? `<img src="rooms/${t.room}-full.jpg" alt="${esc(ROOMS[t.room])}" style="width:100%;max-height:300px;object-fit:cover;object-position:center 88%;border-radius:18px;margin:0 0 10px;display:block">` : ''}
     <div style="margin:-4px 2px 10px"><span class="chip ${S.cls}">${icon(S.icon === 'clock' ? 'hourglass' : S.icon, 13)} ${S.label}</span></div>
     <div class="card flat" style="padding:4px 14px">
@@ -66,7 +66,7 @@ else {
     ${t.tips ? `<div class="card flat"><h3>טיפים</h3><p>${esc(t.tips)}</p></div>` : ''}
     ${repsHtml}
     ${status === 'done'
-      ? '<button class="btn disabled" type="button" disabled>כל החזרות בוצעו</button>'
+      ? `<button class="btn disabled" type="button" disabled>כל החזרות בוצעו</button><a class="btn secondary" href="report.html?id=${t.id}">ביצעתי שוב (ביצוע נוסף)</a>`
       : `<a class="btn" href="report.html?id=${t.id}">ביצעתי את המשימה</a>`}
     <p class="note">מי שביצע בפועל מדווח ומקבל את הנקודות.</p>`;
 }

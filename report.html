@@ -33,13 +33,13 @@ const main = document.getElementById('main');
 const { data: t } = id ? await supabase.from('tasks').select('*').eq('id', id).maybeSingle() : { data: null };
 if (!t) { main.innerHTML = '<p class="empty">המשימה לא נמצאה</p>'; throw new Error('no task'); }
 const done = (await reportCounts([t.id]))[t.id] || 0;
-if (done >= t.times_required) { main.innerHTML = '<p class="empty">כל החזרות של המשימה כבר בוצעו</p>'; throw new Error('done'); }
+const extra = done >= (t.times_required || 1);
 
 let blob = null, previewUrl = null, sending = false;
 const photoRequired = !!t.requires_photo;
 main.innerHTML = `
   <div class="card flat"><div class="back-row" style="margin:0">${iconBox(t, 52)}
-    <div><b style="font-size:20px">${esc(t.title)}</b>${t.times_required > 1 ? `<div class="note" style="text-align:start">חזרה <span dir="ltr">${done + 1}/${t.times_required}</span></div>` : ''}</div></div></div>
+    <div><b style="font-size:20px">${esc(t.title)}</b>${extra ? `<div class="note" style="text-align:start">ביצוע נוסף, מעבר ל-<span dir="ltr">${t.times_required}</span> שהוגדרו. מקבלים נקודות מלאות</div>` : t.times_required > 1 ? `<div class="note" style="text-align:start">חזרה <span dir="ltr">${done + 1}/${t.times_required}</span></div>` : ''}</div></div></div>
   ${photoRequired ? '<div id="photoBox"></div>' : ''}
   <label for="note">הערה (אופציונלי)</label>
   <textarea id="note" maxlength="500"></textarea>
