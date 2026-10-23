@@ -80,7 +80,7 @@ function openCard(uid, editMode = false) {
   const head = `<div class="pbig">${avatar(p, 150)}<h2>${esc(p.name)}</h2></div>`;
   if (editMode) {
     pc.innerHTML = `${x}${head}
-      <label for="pBd">תאריך יום הולדת</label><input id="pBd" type="date" value="${p.birthday || ''}" dir="ltr">
+      <label for="pBd">תאריך לידה</label><input id="pBd" type="date" value="${p.birthday || ''}" dir="ltr">
       <label for="pAbout">מה כדאי לדעת</label><textarea id="pAbout" maxlength="400" placeholder="למשל: אלרגיה, אוכל אהוב, מידת נעליים">${esc(p.about || '')}</textarea>
       <p class="error" id="pErr" role="alert"></p>
       <button class="btn" id="pSave" type="button">שמירה</button>
@@ -96,7 +96,7 @@ function openCard(uid, editMode = false) {
   } else {
     pc.innerHTML = `${x}${head}
       ${away[uid] ? `<div class="pline"><span class="abs-tag">נעדר/ת</span> ${esc(away[uid])}</div>` : ''}
-      <div class="pline">${p.birthday ? `<b>🎂 ${dmy(p.birthday)}</b><br><small>${esc(bdayText(bi))}</small>` : '<small>עוד לא הוזן יום הולדת</small>'}</div>
+      <div class="pline">${p.birthday ? `<b>🎂 נולד/ה ב-${dmy(p.birthday)}</b><br><small>${esc(bdayText(bi))}</small>` : '<small>עוד לא הוזן תאריך לידה</small>'}</div>
       <div class="pline"><b>מה כדאי לדעת</b><br>${p.about ? esc(p.about).replace(/\n/g, '<br>') : '<small>עוד לא נכתב</small>'}</div>
       <div class="pline"><b>נקודות השבוע:</b> <span dir="ltr">${pointsByUser[uid] || 0}</span></div>
       ${me?.role === 'admin' ? `<button class="btn secondary" id="pEdit" type="button">${icon('pencil', 18)} עריכה</button>` : ''}`;

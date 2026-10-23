@@ -45,6 +45,15 @@ const fmt = d => d.split('-').reverse().slice(0, 2).join('.');
 const shift = n => { let [y, m] = ym.split('-').map(Number); m += n; while (m > 12) { m -= 12; y++; } while (m < 1) { m += 12; y--; } ym = `${y}-${String(m).padStart(2, '0')}`; draw(); };
 const forDay = d => events.filter(e => (!who || e.user_id === who) && (e.repeat === 'weekly' ? e.weekday === dow(d) : e.event_date === d))
   .sort((a, b) => hm(a.start_time).localeCompare(hm(b.start_time)));
+// ימי הולדת מחושבים מתאריך הלידה (29 בפברואר חוגג ב-28 בשנה שאינה מעוברת)
+const isLeap = y => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+const bdaysOn = d => { const [y, m, dd] = d.split('-').map(Number);
+  return users.filter(u => u.birthday && (!who || u.id === who)).filter(u => {
+    const [by, bm, bdy] = u.birthday.split('-').map(Number);
+    if (y <= by) return false;
+    const day = (bm === 2 && bdy === 29 && !isLeap(y)) ? 28 : bdy;
+    return bm === m && day === dd;
+  }).map(u => ({ u, age: y - Number(u.birthday.slice(0, 4)) })); };
 const when = e => e.repeat === 'weekly' ? `כל יום ${WEEKDAYS[e.weekday]}` : e.event_date.split('-').reverse().join('.');
 
 function drawFaces() {
@@ -58,8 +67,8 @@ function draw() {
   let html = SHORT.map(s => `<div class="mh">${s}</div>`).join('') + '<div class="mc off"></div>'.repeat(lead);
   for (let i = 1; i <= n; i++) {
     const d = `${ym}-${String(i).padStart(2, '0')}`;
-    const list = forDay(d), ids = [...new Set(list.map(e => e.user_id))];
-    html += `<button type="button" class="mc ${d === today ? 'today' : ''} ${list.length ? 'has' : ''}" data-d="${d}"><span class="dn">${i}</span>
+    const list = forDay(d), ids = [...new Set(list.map(e => e.user_id))], bds = bdaysOn(d);
+    html += `<button type="button" class="mc ${d === today ? 'today' : ''} ${list.length || bds.length ? 'has' : ''}" data-d="${d}"><span class="dn">${i}${bds.length ? '<span class="bdi">🎂</span>' : ''}</span>
       <span class="stack">${ids.slice(0, 3).map(id => avatar(byId[id], 22)).join('')}${ids.length > 3 ? `<span class="more">+${ids.length - 3}</span>` : ''}</span></button>`;
   }
   $('grid').innerHTML = html;
@@ -80,13 +89,14 @@ async function load() {
 }
 
 function showDay(d) {
-  const list = forDay(d);
+  const list = forDay(d), bds = bdaysOn(d);
   $('modalCard').innerHTML = `<button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 22)}</button>
     <h2 style="margin:0 0 10px;font-size:20px">יום ${WEEKDAYS[dow(d)]}, ${fmt(d)}</h2>
+    ${bds.map(({ u, age }) => `<div class="calbday">${avatar(u, 40)}<b>🎂 יום הולדת ${age} ל${esc(u.name)}</b></div>`).join('')}
     ${list.length ? list.map(e => { const p = byId[e.user_id]; const c = p?.color || '#3AB5FF';
       return `<button type="button" class="calev" data-id="${e.id}" style="border-inline-start:6px solid ${c};background:${c}18">${avatar(p, 40)}
         <div class="calmain"><b>${esc(e.title)}</b><small>${esc(p?.name || '')}${e.repeat === 'weekly' ? ' · כל שבוע' : ''}</small></div>
-        <span class="caltime" dir="ltr">${hm(e.start_time)}–${hm(e.end_time)}</span></button>`; }).join('') : '<p class="calnone">אין פעילויות ביום הזה</p>'}
+        <span class="caltime" dir="ltr">${hm(e.start_time)}–${hm(e.end_time)}</span></button>`; }).join('') : (bds.length ? '' : '<p class="calnone">אין פעילויות ביום הזה</p>')}
     <button class="btn" id="dayadd" type="button">${icon('plus', 22)} הוספת פעילות ליום הזה</button>`;
   $('modal').classList.remove('hidden');
   $('mx').onclick = close; $('dayadd').onclick = () => openForm(null, d);
