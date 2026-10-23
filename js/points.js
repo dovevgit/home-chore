@@ -15,5 +15,9 @@ export async function weeklyPoints(now = new Date()) {
     const slot = (t.slots || [])[(r.payload?.slot_n || 1) - 1];
     pointsByUser[r.user_id] = (pointsByUser[r.user_id] || 0) + pointsFor(t, slot, new Date(r.created_at)).points;
   }
+  try {
+    const { data: rp } = await supabase.rpc('request_points', { p_since: ws.start.toISOString(), p_until: ws.end.toISOString() });
+    for (const r of rp || []) pointsByUser[r.user_id] = (pointsByUser[r.user_id] || 0) + Number(r.pts);
+  } catch (_) {}
   return { pointsByUser, ws };
 }

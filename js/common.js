@@ -132,6 +132,7 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
       <a href="tasks.html?me=1">${icon('list-checks')} המשימות שלי</a>
       <a href="calendar.html">${icon('calendar-days')} לוח שנה</a>
       <a href="history.html">${icon('chart-column')} היסטוריה ודיווחים</a>
+      <a href="requests.html">${icon('hand-heart')} בקשות מיוחדות</a>
       <a href="chat.html">${icon('message-circle')} הודעות משפחתיות</a>
       ${isAdmin ? `<a href="admin.html">${icon('settings')} ניהול</a>` : ''}
       <button id="logout" type="button">${icon('log-out')} התנתקות</button></nav>`;
