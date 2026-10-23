@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | דיווח משימה</title>
+<meta name="theme-color" content="#0D6EFD">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+.drop{border:2.5px dashed var(--field);border-radius:20px;padding:28px 16px;text-align:center;background:#F8FBFF;color:var(--text2)}
+.drop svg{width:44px;height:44px;color:#0A58CA}
+.preview{position:relative;border-radius:20px;overflow:hidden;background:#000}
+.preview img{display:block;width:100%;max-height:360px;object-fit:contain}
+.preview .x{position:absolute;top:10px;inset-inline-start:10px;width:44px;height:44px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+textarea{width:100%;min-height:80px;border:1.5px solid var(--field);border-radius:14px;padding:10px 14px;font:inherit;color:var(--text)}
+input[type=file]{display:none}
+</style>
+</head>
+<body>
+<main id="main"><p class="empty">טוען...</p></main>
+<script type="module">
+import { initPage, supabase, esc, icon, iconBox, reportCounts, deriveStatus, nextSlot, pointsFor, submitReport, shrinkImage, flashToast, showToast } from './js/common.js';
+const { session } = await initPage({ title: 'דיווח משימה', back: 'tasks.html' });
+const id = new URLSearchParams(location.search).get('id');
+const main = document.getElementById('main');
+const { data: t } = id ? await supabase.from('tasks').select('*').eq('id', id).maybeSingle() : { data: null };
+if (!t) { main.innerHTML = '<p class="empty">המשימה לא נמצאה</p>'; throw new Error('no task'); }
+const done = (await reportCounts([t.id]))[t.id] || 0;
+if (done >= t.times_required) { main.innerHTML = '<p class="empty">כל החזרות של המשימה כבר בוצעו</p>'; throw new Error('done'); }
+
+let blob = null, previewUrl = null, sending = false;
+const photoRequired = !!t.requires_photo;
+main.innerHTML = `
+  <div class="card flat"><div class="back-row" style="margin:0">${iconBox(t, 52)}
+    <div><b style="font-size:20px">${esc(t.title)}</b>${t.times_required > 1 ? `<div class="note" style="text-align:start">חזרה <span dir="ltr">${done + 1}/${t.times_required}</span></div>` : ''}</div></div></div>
+  ${photoRequired ? '<div id="photoBox"></div>' : ''}
+  <label for="note">הערה (אופציונלי)</label>
+  <textarea id="note" maxlength="500"></textarea>
+  <p class="error" id="err" role="alert"></p>
+  <button class="btn" id="send" type="button">שליחת דיווח</button>
+  <p class="note">הדיווח יופיע לכל המשפחה, ולא ניתן לערוך אותו אחרי השליחה.</p>
+  <input id="file" type="file" accept="image/*" capture="environment">`;
+const $ = i => document.getElementById(i);
+
+function drawPhoto() {
+  if (!photoRequired) return;
+  const box = $('photoBox');
+  if (!blob) {
+    box.innerHTML = `<div class="drop">${icon('camera', 44)}<p style="margin:8px 0 14px">צריך לצלם תמונה כהוכחה</p>
+      <button class="btn secondary" id="pick" type="button">פתיחת המצלמה</button></div>`;
+    $('pick').onclick = () => $('file').click();
+  } else {
+    box.innerHTML = `<div class="preview"><img src="${previewUrl}" alt="תמונת ההוכחה"><button class="x" id="rm" type="button" aria-label="הסרת התמונה">${icon('x', 22)}</button></div>
+      <button class="btn secondary" id="again" type="button" style="width:100%;margin-top:10px">צילום תמונה נוספת</button>`;
+    $('rm').onclick = () => { blob = null; URL.revokeObjectURL(previewUrl); previewUrl = null; drawPhoto(); refresh(); };
+    $('again').onclick = () => $('file').click();
+  }
+}
+function refresh() { $('send').disabled = sending || (photoRequired && !blob); }
+$('file').onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  $('err').textContent = '';
+  try {
+    blob = await shrinkImage(f);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = URL.createObjectURL(blob);
+  } catch (_) { blob = null; $('err').textContent = 'לא הצלחנו לקרוא את התמונה, אפשר לנסות שוב'; }
+  drawPhoto(); refresh();
+};
+
+$('send').onclick = async () => {
+  if (sending) return;
+  if (!photoRequired && !confirm('לדווח על ביצוע? אי אפשר לערוך אחרי השליחה.')) return;
+  sending = true; $('err').textContent = '';
+  $('send').textContent = photoRequired && blob ? 'מעלה...' : 'שולח...'; refresh();
+  try {
+    let path = null;
+    if (blob) {
+      path = `reports/${session.user.id}/${crypto.randomUUID()}.jpg`;
+      const up = await supabase.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+      if (up.error) throw new Error('upload');
+    }
+    const r = await submitReport({ task: t, userId: session.user.id, note: $('note').value.trim(), photoPath: path });
+    if (r.error) throw new Error(r.error.message || 'insert');
+    const { points, late } = pointsFor(t, r.slot);
+    flashToast(`הדיווח נשלח, +${points} נקודות${late ? ' (באיחור)' : ''}`);
+    location.replace('tasks.html');
+  } catch (e) {
+    sending = false; $('send').textContent = 'שליחת דיווח';
+    $('err').textContent = e.message === 'upload' ? 'ההעלאה נכשלה, אפשר לנסות שוב. כדאי להשאיר את המסך פתוח.' : 'השליחה נכשלה: ' + e.message;
+    refresh();
+  }
+};
+drawPhoto(); refresh();
+</script>
+</body>
+</html>

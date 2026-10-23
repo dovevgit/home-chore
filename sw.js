@@ -1,6 +1,6 @@
 // Service worker מינימלי: שומר את קבצי המעטפת לפתיחה מהירה. נתונים תמיד מהרשת.
-const CACHE = 'habayit-v2';
-const SHELL = ['./','./index.html','./login.html','./css/style.css','./js/config.js','./js/supabase.js','./js/common.js','./js/icons.js','./js/generate.js','./tasks.html','./task.html','./admin.html','./manifest.webmanifest'];
+const CACHE = 'habayit-v4';
+const SHELL = ['./','./index.html','./login.html','./css/style.css','./js/config.js','./js/supabase.js','./js/common.js','./js/icons.js','./js/generate.js','./js/points.js','./tasks.html','./task.html','./admin.html','./report.html','./manifest.webmanifest'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));

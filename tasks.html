@@ -29,7 +29,7 @@
   <div id="list"><p class="empty">טוען...</p></div>
 </main>
 <script type="module">
-import { initPage, supabase, esc, icon, iconBox, avatar, ilDate, ilTime, addDays, weekStart, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
+import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, ilDate, ilTime, addDays, weekStart, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
 const { session, profiles } = await initPage({ active: 'tasks', title: 'המשימות שלנו' });
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 
@@ -79,11 +79,11 @@ function render() {
     const S = STATUS[status];
     const multi = t.times_required > 1;
     const due = slot?.due_at ? (multi && status !== 'done' ? `הבא: ${ilTime(new Date(slot.due_at))}` : ilTime(new Date(slot.due_at))) : '';
-    return `<a class="tcard" href="task.html?id=${t.id}">
-      <span class="sdot ${S.cls}">${status === 'done' ? icon('check', 16) : ''}</span>
+    return `<a class="tcard" href="task.html?id=${t.id}" style="background:${tintOf(t)}">
+      <span class="sdot ${S.cls}">${status === 'done' ? icon('check', 14) : ''}</span>
       ${iconBox(t)}
       <div class="tmain"><b>${esc(t.title)}${multi ? ` <span dir="ltr">(${c}/${t.times_required})</span>` : ''}</b><small>${due ? `<span dir="ltr">${esc(due)}</span>` : ''}</small></div>
-      <span class="chip ${S.cls}">${icon(S.icon, 14)} ${S.label}</span>
+      <span class="chip ${S.cls}">${icon(S.icon === 'clock' ? 'hourglass' : S.icon, 13)} ${S.label}</span>
       ${avatar(byId[slot?.assignee_id], 36)}</a>`;
   }).join('');
 }

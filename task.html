@@ -15,7 +15,7 @@
 <body>
 <main id="main"><p class="empty">טוען...</p></main>
 <script type="module">
-import { initPage, supabase, esc, icon, iconBox, avatar, ilTime, ilDate, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
+import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, ilTime, ilDate, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
 const { profiles } = await initPage({ title: 'פרטי משימה', back: 'tasks.html' });
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 const id = new URLSearchParams(location.search).get('id');
@@ -28,22 +28,25 @@ else {
   const S = STATUS[status];
   const slot = nextSlot(t, c);
   const repeatTxt = t.repeat === 'weekly' ? 'שבועי' : t.repeat === 'daily' ? (t.times_required > 1 ? `${t.times_required} פעמים ביום` : 'פעם ביום') : 'חד-פעמי';
-  const due = slot?.due_at ? `${ilDate(new Date(slot.due_at)) === ilDate(new Date()) ? 'היום' : ilDate(new Date(slot.due_at))} בשעה <span dir="ltr">${ilTime(new Date(slot.due_at))}</span>` : '—';
+  const due = slot?.due_at ? `<span dir="ltr">${ilTime(new Date(slot.due_at))}</span>` : '—';
   document.title = 'הבית שלנו | ' + t.title;
   main.innerHTML = `
-    <div class="back-row">${iconBox(t, 56)}<div style="flex:1"><div style="font-size:24px;font-weight:800">${esc(t.title)}</div>
-      <span class="chip ${S.cls}">${icon(S.icon, 14)} ${S.label}</span></div></div>
-    <div class="card flat">
-      <div class="kv"><span>אחראי/ת</span><span>${slot ? `${avatar(byId[slot.assignee_id], 28)} ${esc(byId[slot.assignee_id]?.name || '')}` : '—'}</span></div>
-      <div class="kv"><span>מועד</span><span>${due}</span></div>
-      <div class="kv"><span>חזרה</span><span>${esc(repeatTxt)}${t.times_required > 1 ? ` <span dir="ltr">(${c}/${t.times_required})</span>` : ''}</span></div>
-      <div class="kv"><span>נקודות</span><span class="pts" dir="ltr">+${t.points}</span></div>
-      <div class="kv"><span>חובה לצלם</span><span>${t.requires_photo ? 'כן' : 'לא'}</span></div>
+    <div class="card flat dhead" style="background:${tintOf(t)}">${iconBox(t, 56)}
+      <div style="flex:1"><div class="dtitle">${esc(t.title)}${t.times_required > 1 ? ` <span dir="ltr">(${c}/${t.times_required})</span>` : ''}</div></div></div>
+    <div style="margin:-4px 2px 10px"><span class="chip ${S.cls}">${icon(S.icon === 'clock' ? 'hourglass' : S.icon, 13)} ${S.label}</span></div>
+    <div class="card flat" style="padding:4px 14px">
+      <div class="kv"><span>${icon('user', 18)} אחראי/ת</span><span>${slot ? `${esc(byId[slot.assignee_id]?.name || '')} ${avatar(byId[slot.assignee_id], 28)}` : '—'}</span></div>
+      <div class="kv"><span>${icon('clock', 18)} מועד</span><span>${due}</span></div>
+      <div class="kv"><span>${icon('repeat', 18)} חזרה</span><span>${esc(repeatTxt)}</span></div>
+      <div class="kv"><span>${icon('star', 18)} נקודות</span><span class="pts" dir="ltr">${t.points}</span></div>
+      <div class="kv"><span>${icon('camera', 18)} חובה לצלם</span><span>${t.requires_photo ? 'כן' : 'לא'}</span></div>
     </div>
     ${t.description ? `<div class="card flat"><h3>תיאור</h3><p>${esc(t.description)}</p></div>` : ''}
     ${t.tips ? `<div class="card flat"><h3>טיפים</h3><p>${esc(t.tips)}</p></div>` : ''}
-    <button class="btn disabled" type="button" disabled>${status === 'done' ? 'כל החזרות בוצעו' : 'ביצעתי את המשימה'}</button>
-    ${status === 'done' ? '' : '<p class="note">הדיווח על ביצוע ייפתח בשלב הבא של הפיתוח.</p>'}`;
+    ${status === 'done'
+      ? '<button class="btn disabled" type="button" disabled>כל החזרות בוצעו</button>'
+      : `<a class="btn" href="report.html?id=${t.id}">ביצעתי את המשימה</a>`}
+    <p class="note">מי שביצע בפועל מדווח ומקבל את הנקודות.</p>`;
 }
 </script>
 </body>

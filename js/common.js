@@ -73,12 +73,13 @@ export async function reportCounts(taskIds) {
 
 /* ---------- צבעי כרטיס לפי קטגוריה ---------- */
 export const CARD_COLORS = {
-  yellow: { bg: '#FFE9B0', fg: '#B45309', name: 'צהוב (הכלב)' },
-  blue:   { bg: '#CFE6FF', fg: '#0A58CA', name: 'כחול (כלים, פח)' },
-  purple: { bg: '#E3D8FF', fg: '#5B2FC9', name: 'סגול (חדרים)' },
-  orange: { bg: '#FFD9BF', fg: '#B23C00', name: 'כתום (ניקיון)' },
-  green:  { bg: '#CDEFD2', fg: '#166534', name: 'ירוק (לימודים)' }
+  yellow: { bg: '#FFE9B0', fg: '#B45309', tint: '#FFF8E6', name: 'צהוב (הכלב)' },
+  blue:   { bg: '#CFE6FF', fg: '#0A58CA', tint: '#EEF6FF', name: 'כחול (כלים, פח)' },
+  purple: { bg: '#E3D8FF', fg: '#5B2FC9', tint: '#F4EFFF', name: 'סגול (חדרים)' },
+  orange: { bg: '#FFD9BF', fg: '#B23C00', tint: '#FFF1E8', name: 'כתום (ניקיון)' },
+  green:  { bg: '#CDEFD2', fg: '#166534', tint: '#EEFAF0', name: 'ירוק (לימודים)' }
 };
+export const tintOf = (task) => (CARD_COLORS[task.color] || CARD_COLORS.blue).tint;
 export function iconBox(task, size = 46) {
   const c = CARD_COLORS[task.color] || CARD_COLORS.blue;
   return `<span class="ibox" style="width:${size}px;height:${size}px;background:${c.bg};color:${c.fg}">${icon(task.icon || 'sparkles', Math.round(size * 0.52))}</span>`;
@@ -88,8 +89,8 @@ export function iconBox(task, size = 46) {
 export function avatar(p, size = 36) {
   if (!p) return `<span class="avatar" style="width:${size}px;height:${size}px"></span>`;
   const border = p.color || '#3AB5FF';
-  const init = esc((p.name || '?').trim().slice(0, 1));
-  return `<span class="avatar" title="${esc(p.name)}" style="width:${size}px;height:${size}px;border-color:${border};font-size:${Math.round(size * 0.46)}px">${init}</span>`;
+  const inner = p.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="${esc(p.name)}">` : esc((p.name || '?').trim().slice(0, 1));
+  return `<span class="avatar" title="${esc(p.name)}" style="width:${size}px;height:${size}px;border-color:${border};font-size:${Math.round(size * 0.46)}px">${inner}</span>`;
 }
 
 /* ---------- מעטפת העמוד: כותרת, תפריט תחתון, מגירה ---------- */
@@ -97,14 +98,19 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) { location.replace('login.html'); await new Promise(() => {}); }
   const { data: profiles } = await supabase.from('profiles').select('*').eq('active', true).order('created_at');
+  const withPhoto = (profiles || []).filter(p => p.avatar_path);
+  if (withPhoto.length) {
+    const { data: signed } = await supabase.storage.from('photos').createSignedUrls(withPhoto.map(p => p.avatar_path), 3600);
+    (signed || []).forEach(sg => { const p = withPhoto.find(x => x.avatar_path === sg.path); if (p && sg.signedUrl) p.avatar_url = sg.signedUrl; });
+  }
   const me = (profiles || []).find(p => p.id === session.user.id) || null;
   const isAdmin = me?.role === 'admin';
 
   const header = document.createElement('header');
   header.className = 'bar';
   header.innerHTML = back
-    ? `<a class="iconbtn" href="${back}" aria-label="חזרה">${icon('arrow-right', 26)}</a><h1>${esc(title)}</h1><span class="iconbtn ghost"></span>`
-    : `<h1>${esc(title)}</h1>${menu ? `<button class="iconbtn" id="menuBtn" aria-label="תפריט">${icon('menu', 26)}</button>` : ''}`;
+    ? `<a class="iconbtn" href="${back}" aria-label="חזרה">${icon('arrow-right', 24)}</a><h1>${esc(title)}</h1><span class="iconbtn ghost"></span>`
+    : `<span class="iconbtn ghost"></span><h1>${esc(title)}</h1>${menu ? `<button class="iconbtn" id="menuBtn" aria-label="תפריט">${icon('menu', 24)}</button>` : ''}`;
   document.body.prepend(header);
 
   if (!back) {
@@ -125,9 +131,55 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
     nav.innerHTML = `
       <a href="index.html" class="${active === 'home' ? 'on' : ''}">${icon('house', 26)}<span>בית</span></a>
       <a href="tasks.html" class="${active === 'tasks' ? 'on' : ''}">${icon('list-checks', 26)}<span>משימות</span></a>
-      <span class="soon" title="בקרוב">${icon('history', 26)}<span>היסטוריה</span></span>`;
+      <span class="soon" title="בקרוב">${icon('chart-column', 26)}<span>היסטוריה</span></span>`;
     document.body.append(nav);
   }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+  showPendingToast();
   return { session, me, profiles: profiles || [], isAdmin };
+}
+
+/* ---------- נקודות, דיווח והודעות ---------- */
+// נקודות על דיווח: מלאות אם בזמן, חלק מהן (late_fraction) אם אחרי מועד החזרה
+export function pointsFor(task, slot, at = new Date()) {
+  const late = !!(slot?.due_at && new Date(slot.due_at) < at);
+  return { late, points: late ? Math.round(task.points * Number(task.late_fraction ?? 0.5)) : task.points };
+}
+export function flashToast(msg, err = false) {
+  try { sessionStorage.setItem('toast', JSON.stringify({ msg, err })); } catch (_) {}
+}
+export function showToast(msg, err = false) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (err ? ' err' : ''); t.textContent = msg;
+  document.body.append(t); setTimeout(() => t.remove(), 4000);
+}
+export function showPendingToast() {
+  try {
+    const raw = sessionStorage.getItem('toast'); if (!raw) return;
+    sessionStorage.removeItem('toast');
+    const { msg, err } = JSON.parse(raw); showToast(msg, err);
+  } catch (_) {}
+}
+// שליחת דיווח: מוסיף שורה ל-feed. החזרה ה-n תופסת את הסלוט ה-n.
+export async function submitReport({ task, userId, note, photoPath }) {
+  const done = (await reportCounts([task.id]))[task.id] || 0;
+  if (done >= (task.times_required || 1)) return { error: { message: 'כל החזרות של המשימה כבר בוצעו' } };
+  const { error } = await supabase.from('feed').insert({
+    type: 'report', user_id: userId, task_id: task.id, body: note || null, photo_path: photoPath || null,
+    payload: { slot_n: done + 1 }
+  });
+  return { error, slot: (task.slots || [])[done] || null };
+}
+// הקטנת תמונה לרוחב/גובה מקסימלי של 1600 פיקסל, JPEG
+export async function shrinkImage(file, max = 1600) {
+  let bmp;
+  try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+  catch (_) {
+    bmp = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+  }
+  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight;
+  const k = Math.min(1, max / Math.max(w, h));
+  const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('blob')), 'image/jpeg', 0.8));
 }

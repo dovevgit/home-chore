@@ -14,36 +14,89 @@
 </head>
 <body>
 <main>
-  <p id="hello" class="help" style="text-align:start"></p>
-  <h2>המשימות של היום</h2>
+  <div id="leader"></div>
+  <div class="card" style="margin-bottom:8px"><div class="sec-title" style="margin:0">סיכום היום</div>
+    <div class="stats" id="stats"><p class="empty" style="flex:1">טוען...</p></div></div>
+  <div class="sec-title">בני המשפחה</div>
+  <div class="family" id="family"></div>
+  <div class="sec-head"><div class="sec-title">המשימות של היום</div><a href="tasks.html">הצג הכל</a></div>
   <div id="tasks"><p class="empty">טוען...</p></div>
-  <p style="text-align:center"><a href="tasks.html" style="color:#0A58CA;font-weight:700">הצג הכל</a></p>
-  <h2>הודעות אחרונות</h2>
+  <div class="sec-title">מה קרה לאחרונה</div>
+  <div id="recent"><p class="empty">טוען...</p></div>
+  <div class="sec-title">הודעות אחרונות</div>
   <div id="feed"><p class="empty">טוען...</p></div>
 </main>
 <script type="module">
-import { initPage, supabase, esc, icon, iconBox, ilDate, ilTime, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
-const { me } = await initPage({ active: 'home', title: 'הבית שלנו' });
-document.getElementById('hello').textContent = me ? `שלום, ${me.name}` : '';
-
+import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, pointsFor, ilDate, ilTime, addDays, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
+import { weeklyPoints } from './js/points.js';
+const { me, profiles } = await initPage({ active: 'home', title: 'הבית שלנו' });
+const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 const today = ilDate(new Date());
-const { data: all, error: tErr } = await supabase.from('tasks').select('*').eq('kind', 'occurrence').eq('active', true).eq('occurrence_date', today);
+
+/* --- נקודות שבועיות, מוביל ובני משפחה --- */
+const { pointsByUser } = await weeklyPoints();
+const users = profiles.filter(p => p.is_user);
+const best = Math.max(0, ...users.map(u => pointsByUser[u.id] || 0));
+const leaders = best > 0 ? users.filter(u => (pointsByUser[u.id] || 0) === best) : [];
+document.getElementById('leader').innerHTML = leaders.length ? `
+  <div class="card leader">${avatar(leaders[0], 52)}
+    <div style="flex:1"><div class="lsub">המוביל השבועי</div><div class="ltitle">${leaders.map(l => esc(l.name)).join(' ו')}</div>
+    <div class="lsub"><span dir="ltr">${best}</span> נקודות</div></div>
+    <span class="crown">${icon('crown', 26)}</span></div>` : '';
+document.getElementById('family').innerHTML = profiles.map(p => `
+  <div class="avn">${avatar(p, 54)}<span class="avname">${esc(p.name)}</span><span class="apts" dir="ltr">${p.is_user ? (pointsByUser[p.id] || 0) : ''}</span></div>`).join('');
+
+/* --- המשימות של היום וסיכום --- */
+const { data: all, error: tErr } = await supabase.from('tasks').select('*').eq('kind', 'occurrence').eq('active', true).gte('occurrence_date', addDays(today, -1)).lte('occurrence_date', today);
 const tEl = document.getElementById('tasks');
-if (tErr) tEl.innerHTML = '<p class="empty">לא הצלחנו לטעון משימות</p>';
-else if (!all.length) tEl.innerHTML = '<p class="empty">אין משימות להיום</p>';
+if (tErr) { tEl.innerHTML = '<p class="empty">לא הצלחנו לטעון משימות</p>'; document.getElementById('stats').innerHTML = ''; }
 else {
-  const counts = await reportCounts(all.map(t => t.id));
-  const rows = all.map(t => ({ t, c: counts[t.id] || 0 })).map(r => ({ ...r, status: deriveStatus(r.t, r.c), slot: nextSlot(r.t, r.c) }))
-    .filter(r => r.status !== 'done')
-    .sort((a, b) => (b.status === 'overdue') - (a.status === 'overdue') || new Date(a.slot?.due_at || '2100-01-01') - new Date(b.slot?.due_at || '2100-01-01'))
-    .slice(0, 3);
-  tEl.innerHTML = rows.length ? rows.map(({ t, status, slot }) => `
-    <a class="tcard" href="task.html?id=${t.id}">${iconBox(t)}
-      <div class="tmain"><b>${esc(t.title)}</b><small>${slot?.due_at ? `<span dir="ltr">${ilTime(new Date(slot.due_at))}</span>` : ''}</small></div>
-      <span class="chip ${STATUS[status].cls}">${icon(STATUS[status].icon, 14)} ${STATUS[status].label}</span></a>`).join('')
-    : '<p class="empty">כל משימות היום בוצעו</p>';
+  const todays = all.filter(t => (t.slots || []).length ? t.slots.some(sl => sl.due_at && ilDate(new Date(sl.due_at)) === today) : t.occurrence_date === today);
+  const counts = await reportCounts(todays.map(t => t.id));
+  const rows = todays.map(t => { const c = counts[t.id] || 0; return { t, c, status: deriveStatus(t, c), slot: nextSlot(t, c) }; });
+  const done = rows.filter(r => r.status === 'done').length;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="num">${rows.length}</div><div class="slab">סה"כ משימות</div></div>
+    <div class="stat"><div class="num" style="color:#15803D">${done}</div><div class="slab">בוצעו</div></div>
+    <div class="stat"><div class="num" style="color:#B45309">${rows.length - done}</div><div class="slab">נשארו</div></div>`;
+  const open = rows.filter(r => r.status !== 'done')
+    .sort((a, b) => (b.status === 'overdue') - (a.status === 'overdue') || new Date(a.slot?.due_at || '2100-01-01') - new Date(b.slot?.due_at || '2100-01-01')).slice(0, 3);
+  tEl.innerHTML = !rows.length ? '<p class="empty">אין משימות להיום</p>' : open.length ? open.map(({ t, c, status, slot }) => {
+    const S = STATUS[status];
+    return `<a class="tcard" href="task.html?id=${t.id}" style="background:${tintOf(t)}">
+      <span class="sdot ${S.cls}">${status === 'done' ? icon('check', 14) : ''}</span>${iconBox(t)}
+      <div class="tmain"><b>${esc(t.title)}${t.times_required > 1 ? ` <span dir="ltr">(${c}/${t.times_required})</span>` : ''}</b><small>${slot?.due_at ? `<span dir="ltr">${ilTime(new Date(slot.due_at))}</span>` : ''}</small></div>
+      <span class="chip ${S.cls}">${icon(S.icon === 'clock' ? 'hourglass' : S.icon, 13)} ${S.label}</span>${avatar(byId[slot?.assignee_id], 34)}</a>`;
+  }).join('') : '<p class="empty">כל משימות היום בוצעו</p>';
 }
 
+/* --- מה קרה לאחרונה --- */
+const { data: reps } = await supabase.from('feed').select('*').eq('type', 'report').order('created_at', { ascending: false }).limit(3);
+const rEl = document.getElementById('recent');
+if (!reps || !reps.length) rEl.innerHTML = '<p class="empty">עוד לא דווחו משימות</p>';
+else {
+  const ids = [...new Set(reps.map(r => r.task_id))];
+  const { data: ts } = await supabase.from('tasks').select('*').in('id', ids);
+  const tById = Object.fromEntries((ts || []).map(t => [t.id, t]));
+  const paths = reps.map(r => r.photo_path).filter(Boolean);
+  const urls = {};
+  if (paths.length) {
+    const { data: signed } = await supabase.storage.from('photos').createSignedUrls(paths, 3600);
+    (signed || []).forEach(sg => { if (sg.path && sg.signedUrl) urls[sg.path] = sg.signedUrl; });
+  }
+  rEl.innerHTML = reps.map(r => {
+    const t = tById[r.task_id]; const who = byId[r.user_id];
+    const slot = t && r.payload?.slot_n ? (t.slots || [])[r.payload.slot_n - 1] : null;
+    const pts = t ? pointsFor(t, slot, new Date(r.created_at)).points : 0;
+    const when = ilDate(new Date(r.created_at)) === today ? 'היום' : ilDate(new Date(r.created_at));
+    return `<div class="card recent" style="margin-bottom:8px;padding:8px 12px">${avatar(who, 40)}
+      <div style="flex:1;min-width:0"><b style="font-size:16px">${esc(who?.name || 'מישהו')} ביצע/ה: ${esc(t?.title || '')}</b>
+      <div class="note" style="text-align:start;margin:0"><span dir="ltr">${ilTime(new Date(r.created_at))}</span> ${when}${r.body ? ' · ' + esc(r.body) : ''} · <span class="pts" dir="ltr">+${pts}</span></div></div>
+      ${urls[r.photo_path] ? `<img class="th" src="${urls[r.photo_path]}" alt="">` : ''}</div>`;
+  }).join('');
+}
+
+/* --- הודעות --- */
 const { data: feed, error: fErr } = await supabase.from('feed').select('id,type,body,created_at').in('type', ['system', 'chat']).order('created_at', { ascending: false }).limit(5);
 const fEl = document.getElementById('feed');
 if (fErr) fEl.innerHTML = '<p class="empty">לא הצלחנו לטעון הודעות</p>';

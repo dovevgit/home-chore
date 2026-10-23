@@ -12,20 +12,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
-<div class="hero"><h1>הבית שלנו</h1><p>משימות הבית, ביחד ובקלות</p></div>
+<body class="login">
+<div class="hero"><span class="tile" id="houseIcon"></span><h1>הבית שלנו</h1><p>משימות הבית, ביחד ובקלות</p></div>
 <form class="card login-card" id="form" novalidate>
+  <h2>ברוכים הבאים</h2>
   <label for="email">אימייל</label>
   <input id="email" type="email" autocomplete="username" inputmode="email" dir="ltr" placeholder="name@example.com" required>
   <label for="password">סיסמה</label>
   <input id="password" type="password" autocomplete="current-password" dir="ltr" placeholder="הסיסמה שלך" required>
   <button class="btn" id="submit" type="submit">התחברות</button>
   <p class="error" id="error" role="alert"></p>
-  <p class="help">לשינוי סיסמה פנו לאבא</p>
+  <p class="help" style="text-align:center">לשינוי סיסמה פנו לאבא</p>
 </form>
 <div class="ios-tip hidden" id="iosTip">להתקנה: שיתוף ← הוספה למסך הבית</div>
 <script type="module">
 import { supabase } from './js/supabase.js';
+import { icon } from './js/common.js';
+document.getElementById('houseIcon').innerHTML = icon('house', 44);
 const { data } = await supabase.auth.getSession();
 if (data.session) location.replace('index.html');
 
