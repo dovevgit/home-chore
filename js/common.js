@@ -180,10 +180,9 @@ export function showPendingToast() {
     const { msg, err } = JSON.parse(raw); showToast(msg, err);
   } catch (_) {}
 }
-// שליחת דיווח: מוסיף שורה ל-feed. החזרה ה-n תופסת את הסלוט ה-n.
+// שליחת דיווח: מוסיף שורה ל-feed. החזרה ה-n תופסת את הסלוט ה-n. ביצוע נוסף (מעבר למספר שהוגדר) מותר ומקבל נקודות מלאות.
 export async function submitReport({ task, userId, note, photoPath }) {
   const done = (await reportCounts([task.id]))[task.id] || 0;
-  if (done >= (task.times_required || 1)) return { error: { message: 'כל החזרות של המשימה כבר בוצעו' } };
   const { error } = await supabase.from('feed').insert({
     type: 'report', user_id: userId, task_id: task.id, body: note || null, photo_path: photoPath || null,
     payload: { slot_n: done + 1 }
