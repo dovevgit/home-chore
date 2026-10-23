@@ -136,3 +136,34 @@ body.login{padding:0;background:#3AB5FF url(../login-bg.jpg) center bottom/cover
 header.bar h1 .brand{height:46px;width:auto;vertical-align:middle;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))}
 .hero .logo{width:min(86%,340px);height:auto;filter:drop-shadow(0 6px 10px rgba(10,79,184,.35))}
 .ibox.art img{width:84%;height:84%;object-fit:contain;filter:drop-shadow(0 2px 2px rgba(10,60,160,.25))}
+
+/* ===== היסטוריה ===== */
+.hrow{display:flex;align-items:center;gap:10px;width:100%;text-align:start;font:inherit;color:inherit;background:#fff;border:1px solid rgba(31,41,55,.05);border-radius:16px;padding:10px 12px;margin-bottom:8px;box-shadow:0 2px 6px rgba(31,41,55,.06);cursor:pointer}
+.hrow img.th{width:52px;height:46px;border-radius:10px;object-fit:cover;flex:none}
+.hrow .pts{font-size:19px}
+.modal{position:fixed;inset:0;background:rgba(15,30,60,.6);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-card{position:relative;background:#fff;border-radius:22px;padding:16px;width:100%;max-width:480px;max-height:92vh;overflow:auto}
+.modal-x{position:absolute;top:10px;inset-inline-end:10px;width:38px;height:38px;border-radius:50%;border:0;background:rgba(31,41,55,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);z-index:2}
+.modal-card .zoom{width:100%;border-radius:16px;display:block;margin-top:4px}
+
+/* ===== כפתור צ'אט צף ===== */
+.fab{position:fixed;bottom:92px;inset-inline-start:16px;width:60px;height:60px;border-radius:50%;background:linear-gradient(180deg,#3AB5FF,#0D6EFD);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(13,110,253,.45);z-index:30;text-decoration:none}
+.fab .badge{position:absolute;top:-4px;inset-inline-end:-4px;min-width:24px;height:24px;border-radius:12px;background:#EF4444;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 6px;border:2px solid #fff}
+
+/* ===== צ'אט ===== */
+body.chatpage{padding-bottom:88px}
+.msg{display:flex;align-items:flex-end;gap:8px;margin-bottom:10px}
+.msg.mine{flex-direction:row-reverse}
+.bubble{max-width:78%;background:#fff;border-radius:18px;border-end-start-radius:6px;padding:8px 12px;box-shadow:0 2px 6px rgba(31,41,55,.08);overflow-wrap:anywhere}
+.msg.mine .bubble{background:#D6EBFF;border-end-start-radius:18px;border-end-end-radius:6px}
+.bubble b{display:block;font-size:15px;color:var(--blue-dark,#0A58CA)}
+.mtime{display:block;font-size:12px;color:var(--text2);text-align:end;margin-top:2px}
+.mimg{display:block;max-width:100%;max-height:240px;border-radius:12px;margin:4px 0;cursor:pointer}
+.sysmsg{background:#FFF1C2;border-radius:18px;padding:10px 14px;margin:0 0 10px;color:#5A4300;font-weight:600}
+.sysmsg small{display:block;color:#7C3A00;font-weight:800}
+.daysep{text-align:center;color:var(--text2);font-size:14px;font-weight:700;margin:6px 0 10px}
+.composer{position:fixed;inset-inline:0;bottom:0;display:flex;align-items:center;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--border);z-index:25}
+.composer input[type=text]{flex:1;height:48px;border-radius:24px}
+.cbtn{width:48px;height:48px;border-radius:50%;border:0;background:var(--bg);color:#0A58CA;display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}
+.cbtn.send{background:var(--blue);color:#fff}
+.cbtn.send:disabled{opacity:.5}
