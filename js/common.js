@@ -90,7 +90,7 @@ export const tintOf = (task) => (CARD_COLORS[task.color] || CARD_COLORS.blue).ti
 const ART = new Set(["paw-print", "dog", "utensils", "trash-2", "bed-double", "brush-cleaning", "broom", "book-open", "bath", "footprints", "shirt", "washing-machine", "shopping-cart", "cooking-pot", "recycle", "leaf"]);
 export function iconBox(task, size = 46) {
   const c = CARD_COLORS[task.color] || CARD_COLORS.blue;
-  if (ART.has(task.icon)) return `<span class="ibox art" style="width:${size}px;height:${size}px;background:${c.bg}"><img src="icons/task/${task.icon}.png" alt=""></span>`;
+  if (ART.has(task.icon)) return `<span class="ibox art" style="width:${size}px;height:${size}px;background:${c.bg}"><img src="task/${task.icon}.png" alt="" onerror="this.onerror=null;this.src='icons/task/${task.icon}.png'"></span>`;
   return `<span class="ibox" style="width:${size}px;height:${size}px;background:${c.bg};color:${c.fg}">${icon(task.icon || 'sparkles', Math.round(size * 0.52))}</span>`;
 }
 
