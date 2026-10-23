@@ -22,11 +22,12 @@
   <div class="family" id="family"></div>
   <div class="sec-head"><div class="sec-title">המשימות של היום</div><a href="tasks.html">הצג הכל</a></div>
   <div id="tasks"><p class="empty">טוען...</p></div>
-  <div class="sec-title">מה קרה לאחרונה</div>
+  <div class="sec-head"><div class="sec-title">מה קרה לאחרונה</div><a href="history.html">הצג הכל</a></div>
   <div id="recent"><p class="empty">טוען...</p></div>
   <div class="sec-title">הודעות אחרונות</div>
   <div id="feed"><p class="empty">טוען...</p></div>
 </main>
+<a class="fab" href="chat.html" id="fab" aria-label="הודעות משפחתיות"></a>
 <script type="module">
 import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, pointsFor, ilDate, ilTime, addDays, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
 import { weeklyPoints } from './js/points.js';
@@ -95,6 +96,18 @@ else {
       <div class="note" style="text-align:start;margin:0"><span dir="ltr">${ilTime(new Date(r.created_at))}</span> ${when}${r.body ? ' · ' + esc(r.body) : ''} · <span class="pts" dir="ltr">+${pts}</span></div></div>
       ${urls[r.photo_path] ? `<img class="th" src="${urls[r.photo_path]}" alt="">` : ''}</div>`;
   }).join('');
+}
+
+/* --- כפתור צ'אט צף ותג הודעות שלא נקראו --- */
+{
+  const fab = document.getElementById('fab');
+  fab.innerHTML = icon('message-circle', 28);
+  let seen = ''; try { seen = localStorage.getItem('chatSeen') || ''; } catch (_) {}
+  let q = supabase.from('feed').select('id,user_id').in('type', ['chat', 'system']);
+  if (seen) q = q.gt('created_at', seen);
+  const { data: un } = await q;
+  const n = (un || []).filter(m => m.user_id !== me?.id).length;
+  if (n) fab.insertAdjacentHTML('beforeend', `<span class="badge">${n > 9 ? '9+' : n}</span>`);
 }
 
 /* --- הודעות --- */

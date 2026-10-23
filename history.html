@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | היסטוריה</title>
+<meta name="theme-color" content="#0D6EFD">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <div class="tabs" id="tabs">
+    <button data-p="day">יום</button>
+    <button data-p="week" class="on">שבוע</button>
+    <button data-p="month">חודש</button>
+  </div>
+  <div class="filters">
+    <select id="fMember" aria-label="בן משפחה"><option value="">כל המשפחה</option></select>
+    <select id="fTask" aria-label="משימה"><option value="">כל המשימות</option></select>
+  </div>
+  <div class="card" style="margin-bottom:8px"><div class="sec-title" style="margin:0" id="sumTitle">סיכום שבוע</div>
+    <div class="stats" id="stats"><p class="empty" style="flex:1">טוען...</p></div></div>
+  <div class="sec-title">רשימת דיווחים אחרונים</div>
+  <div id="list"><p class="empty">טוען...</p></div>
+</main>
+<div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
+<script type="module">
+import { initPage, supabase, esc, icon, iconBox, avatar, pointsFor, ilDate, ilTime, addDays, toIsraelDate, weekStart, reportCounts } from './js/common.js';
+const { profiles } = await initPage({ active: 'history', title: 'היסטוריה ודיווחים' });
+const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
+const today = ilDate(new Date());
+const $ = id => document.getElementById(id);
+const fMember = $('fMember'), fTask = $('fTask');
+profiles.filter(p => p.is_user).forEach(p => fMember.insertAdjacentHTML('beforeend', `<option value="${p.id}">${esc(p.name)}</option>`));
+
+let period = 'week', seq = 0;
+const NAMES = { day: 'סיכום היום', week: 'סיכום שבוע', month: 'סיכום חודש' };
+
+function range() {
+  if (period === 'day') return { sinceDate: today, endDate: today, since: toIsraelDate(today, '00:00') };
+  if (period === 'week') { const w = weekStart(); return { sinceDate: w.dateStr, endDate: addDays(w.dateStr, 6), since: w.start }; }
+  const [y, m] = today.split('-').map(Number);
+  const first = `${y}-${String(m).padStart(2, '0')}-01`;
+  const last = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+  return { sinceDate: first, endDate: last, since: toIsraelDate(first, '00:00') };
+}
+
+async function load() {
+  const my = ++seq;
+  $('sumTitle').textContent = NAMES[period];
+  $('list').innerHTML = '<p class="empty">טוען...</p>';
+  const R = range();
+  const [tr, fr] = await Promise.all([
+    supabase.from('tasks').select('*').eq('kind', 'occurrence').eq('active', true).gte('occurrence_date', R.sinceDate).lte('occurrence_date', R.endDate),
+    supabase.from('feed').select('*').eq('type', 'report').gte('created_at', R.since.toISOString()).order('created_at', { ascending: false }).limit(100)
+  ]);
+  if (my !== seq) return;
+  if (tr.error || fr.error) { $('list').innerHTML = '<p class="empty">לא הצלחנו לטעון נתונים</p>'; $('stats').innerHTML = ''; return; }
+  const occ = tr.data || [];
+  let reps = fr.data || [];
+  // משימות של הדיווחים (יכולות להיות מתאריך אחר)
+  const known = Object.fromEntries(occ.map(t => [t.id, t]));
+  const missing = [...new Set(reps.map(r => r.task_id).filter(id => id && !known[id]))];
+  if (missing.length) { const { data } = await supabase.from('tasks').select('*').in('id', missing); (data || []).forEach(t => known[t.id] = t); }
+  if (my !== seq) return;
+
+  // אפשרויות סינון משימה (לפי שם)
+  const titles = [...new Set([...occ, ...Object.values(known)].map(t => t.title))].sort((a, b) => a.localeCompare(b, 'he'));
+  const curT = fTask.value;
+  fTask.innerHTML = '<option value="">כל המשימות</option>' + titles.map(t => `<option ${t === curT ? 'selected' : ''}>${esc(t)}</option>`).join('');
+  const mem = fMember.value, tit = fTask.value;
+
+  // סיכום
+  const counts = await reportCounts(occ.map(t => t.id));
+  if (my !== seq) return;
+  let total = 0, done = 0;
+  occ.filter(t => !tit || t.title === tit).forEach(t => {
+    const c = counts[t.id] || 0;
+    const slots = (t.slots && t.slots.length) ? t.slots : Array.from({ length: t.times_required || 1 }, (_, i) => ({ n: i + 1 }));
+    slots.forEach((sl, i) => {
+      if (mem && sl.assignee_id !== mem) return;
+      total++; if (i < c) done++;
+    });
+  });
+  $('stats').innerHTML = `
+    <div class="stat"><div class="num" style="color:#B45309">${total - done}</div><div class="slab">נותרו</div></div>
+    <div class="stat"><div class="num" style="color:#15803D">${done}</div><div class="slab">בוצעו</div></div>
+    <div class="stat"><div class="num">${total}</div><div class="slab">סה"כ משימות</div></div>`;
+
+  // רשימת דיווחים
+  reps = reps.filter(r => (!mem || r.user_id === mem) && (!tit || known[r.task_id]?.title === tit));
+  if (!reps.length) { $('list').innerHTML = '<p class="empty">אין דיווחים בתקופה הזאת</p>'; return; }
+  const paths = reps.map(r => r.photo_path).filter(Boolean);
+  const urls = {};
+  if (paths.length) {
+    const { data: signed } = await supabase.storage.from('photos').createSignedUrls(paths, 3600);
+    (signed || []).forEach(sg => { if (sg.path && sg.signedUrl) urls[sg.path] = sg.signedUrl; });
+  }
+  if (my !== seq) return;
+  window.__rows = reps.map(r => {
+    const t = known[r.task_id]; const slot = t && r.payload?.slot_n ? (t.slots || [])[r.payload.slot_n - 1] : null;
+    const at = new Date(r.created_at); const d = ilDate(at);
+    return { r, t, who: byId[r.user_id], url: urls[r.photo_path], pts: t ? pointsFor(t, slot, at).points : 0,
+      when: `${ilTime(at)} ${d === today ? 'היום' : d === addDays(today, -1) ? 'אתמול' : d.split('-').reverse().join('.')}` };
+  });
+  $('list').innerHTML = window.__rows.map((x, i) => `
+    <button type="button" class="hrow" data-i="${i}">
+      ${x.url ? `<img class="th" src="${x.url}" alt="">` : (x.t ? iconBox(x.t, 46) : '')}
+      <div class="tmain"><b>${esc(x.who?.name || 'מישהו')} ביצע/ה: ${esc(x.t?.title || '')}</b>
+        <small><span dir="ltr">${esc(x.when)}</span>${x.r.body ? ' · ' + esc(x.r.body) : ''}</small></div>
+      <span class="pts" dir="ltr">+${x.pts}</span></button>`).join('');
+}
+
+$('list').addEventListener('click', e => {
+  const b = e.target.closest('.hrow'); if (!b) return;
+  const x = window.__rows[+b.dataset.i];
+  $('modalCard').innerHTML = `
+    <button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 22)}</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">${avatar(x.who, 44)}
+      <div><b style="font-size:19px">${esc(x.who?.name || 'מישהו')}</b><div class="note" style="margin:0;text-align:start">${esc(x.t?.title || '')} · <span dir="ltr">${esc(x.when)}</span> · <span class="pts" dir="ltr">+${x.pts}</span></div></div></div>
+    ${x.url ? `<img class="zoom" src="${x.url}" alt="תמונת הדיווח">` : '<p class="empty">אין תמונה לדיווח הזה</p>'}
+    ${x.r.body ? `<div class="card" style="margin-top:10px;background:var(--bg)">${esc(x.r.body)}</div>` : ''}`;
+  $('modal').classList.remove('hidden');
+  $('mx').onclick = () => $('modal').classList.add('hidden');
+});
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) $('modal').classList.add('hidden'); });
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  period = b.dataset.p;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  load();
+});
+fMember.onchange = fTask.onchange = () => load();
+load();
+</script>
+</body>
+</html>

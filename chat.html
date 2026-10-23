@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | הודעות</title>
+<meta name="theme-color" content="#0D6EFD">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="chatpage">
+<main id="msgs"><p class="empty">טוען...</p></main>
+<form class="composer" id="form" autocomplete="off">
+  <label class="cbtn" for="photo" aria-label="צירוף תמונה" id="photoBtn"></label>
+  <input type="file" id="photo" accept="image/*" hidden>
+  <input id="text" type="text" placeholder="כתבו הודעה..." maxlength="500" enterkeyhint="send">
+  <button class="cbtn send" id="send" type="submit" aria-label="שליחה"></button>
+</form>
+<div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
+<script type="module">
+import { initPage, supabase, esc, icon, avatar, ilDate, ilTime, addDays, flashToast, showToast, shrinkImage } from './js/common.js';
+const { session, profiles } = await initPage({ title: 'הודעות משפחתיות', back: 'index.html' });
+const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
+const me = session.user.id;
+const $ = id => document.getElementById(id);
+$('photoBtn').innerHTML = icon('image', 24);
+$('send').innerHTML = icon('send', 22);
+const today = ilDate(new Date());
+let list = [], urls = {}, busy = false;
+
+const dayLabel = d => d === today ? 'היום' : d === addDays(today, -1) ? 'אתמול' : d.split('-').reverse().join('.');
+
+async function signFor(rows) {
+  const need = rows.map(m => m.photo_path).filter(p => p && !urls[p]);
+  if (!need.length) return;
+  const { data } = await supabase.storage.from('photos').createSignedUrls(need, 3600);
+  (data || []).forEach(sg => { if (sg.path && sg.signedUrl) urls[sg.path] = sg.signedUrl; });
+}
+function render(scroll) {
+  const box = $('msgs');
+  const nearEnd = scroll || (window.innerHeight + window.scrollY >= document.body.scrollHeight - 140);
+  if (!list.length) { box.innerHTML = '<p class="empty">אין הודעות עדיין. כתבו הודעה ראשונה!</p>'; return; }
+  let last = '';
+  box.innerHTML = list.map(m => {
+    const at = new Date(m.created_at); const d = ilDate(at);
+    const sep = d !== last ? `<div class="daysep">${dayLabel(d)}</div>` : ''; last = d;
+    const time = `<span class="mtime" dir="ltr">${ilTime(at)}</span>`;
+    if (m.type === 'system') return `${sep}<div class="sysmsg"><small>הודעת מערכת</small>${esc(m.body)} ${time}</div>`;
+    const mine = m.user_id === me; const who = byId[m.user_id];
+    const img = m.photo_path && urls[m.photo_path] ? `<img class="mimg" src="${urls[m.photo_path]}" alt="תמונה" data-src="${urls[m.photo_path]}">` : '';
+    return `${sep}<div class="msg ${mine ? 'mine' : ''}">${mine ? '' : avatar(who, 36)}
+      <div class="bubble">${mine ? '' : `<b>${esc(who?.name || 'מישהו')}</b>`}${img}${m.body ? `<div>${esc(m.body)}</div>` : ''}${time}</div></div>`;
+  }).join('');
+  if (nearEnd) window.scrollTo(0, document.body.scrollHeight);
+}
+async function load(scroll) {
+  const { data, error } = await supabase.from('feed').select('*').in('type', ['chat', 'system']).order('created_at', { ascending: false }).limit(100);
+  if (error) { if (!list.length) $('msgs').innerHTML = '<p class="empty">לא הצלחנו לטעון הודעות</p>'; return; }
+  const rows = (data || []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  await signFor(rows);
+  const changed = rows.length !== list.length || (rows.at(-1)?.id !== list.at(-1)?.id);
+  list = rows;
+  if (changed || scroll) render(scroll);
+  try { localStorage.setItem('chatSeen', new Date().toISOString()); } catch (_) {}
+}
+
+$('msgs').addEventListener('click', e => {
+  const i = e.target.closest('.mimg'); if (!i) return;
+  $('modalCard').innerHTML = `<button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 22)}</button><img class="zoom" src="${i.dataset.src}" alt="">`;
+  $('modal').classList.remove('hidden'); $('mx').onclick = () => $('modal').classList.add('hidden');
+});
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) $('modal').classList.add('hidden'); });
+
+async function post(row) {
+  if (busy) return; busy = true; $('send').disabled = true;
+  const { error } = await supabase.from('feed').insert({ type: 'chat', user_id: me, ...row });
+  busy = false; $('send').disabled = false;
+  if (error) { showToast('השליחה נכשלה, אפשר לנסות שוב', true); return false; }
+  await load(true); return true;
+}
+$('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const body = $('text').value.trim(); if (!body) return;
+  $('text').value = '';
+  if (!(await post({ body }))) $('text').value = body;
+});
+$('photo').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    showToast('מעלה תמונה...');
+    const blob = await shrinkImage(f);
+    const path = `reports/${me}/chat-${crypto.randomUUID()}.jpg`;
+    const up = await supabase.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+    if (up.error) throw new Error('upload');
+    await post({ photo_path: path, body: $('text').value.trim() || null }); $('text').value = '';
+  } catch (_) { showToast('העלאת התמונה נכשלה', true); }
+});
+
+await load(true);
+// זמן אמת על feed בלבד (הודעות צ'אט ומערכת). גיבוי: רענון כל 20 שניות.
+try {
+  supabase.channel('feed-chat')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed', filter: 'type=in.(chat,system)' }, () => load(false))
+    .subscribe();
+} catch (_) {}
+setInterval(() => { if (!document.hidden) load(false); }, 20000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(false); });
+</script>
+</body>
+</html>
