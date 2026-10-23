@@ -65,7 +65,7 @@ async function showList() {
   document.getElementById('tAdd').onclick = () => showForm(null);
   document.getElementById('gen').onclick = async (e) => {
     e.target.disabled = true;
-    try { const r = await generateOccurrences(session.user.id); toast(`נוצרו ${r.created} משימות (${r.skipped} כבר היו קיימות)`); }
+    try { const r = await generateOccurrences(session.user.id); toast(`נוצרו ${r.created} משימות (${r.skipped} כבר היו קיימות${r.past ? `, ${r.past} דולגו כי השעה שלהן להיום עברה` : ''})`); }
     catch (err) { toast('היצירה נכשלה: ' + (err.message || err), true); }
     e.target.disabled = false;
   };
