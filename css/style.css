@@ -159,7 +159,7 @@ body.chatpage{padding-bottom:calc(88px + env(safe-area-inset-bottom))}
 .msg.mine .bubble{background:#D6EBFF;border-end-start-radius:18px;border-end-end-radius:6px}
 .bubble b{display:block;font-size:15px;color:var(--blue-dark,#0A58CA)}
 .mtime{display:block;font-size:12px;color:var(--text2);text-align:end;margin-top:2px}
-.mimg{display:block;max-width:100%;max-height:240px;border-radius:12px;margin:4px 0;cursor:pointer}
+.mimg{display:block;width:150px;height:150px;max-width:100%;object-fit:cover;border-radius:12px;margin:4px 0;cursor:zoom-in}
 .sysmsg{background:#FFF1C2;border-radius:18px;padding:10px 14px;margin:0 0 10px;color:#5A4300;font-weight:600}
 .sysmsg small{display:block;color:#7C3A00;font-weight:800}
 .daysep{text-align:center;color:var(--text2);font-size:14px;font-weight:700;margin:6px 0 10px}
