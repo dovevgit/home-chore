@@ -71,6 +71,13 @@ export async function reportCounts(taskIds) {
   return map;
 }
 
+// כל הדיווחים של משימות (מהישן לחדש)
+export async function loadReports(taskIds) {
+  if (!taskIds.length) return [];
+  const { data } = await supabase.from('feed').select('*').eq('type', 'report').in('task_id', taskIds).order('created_at', { ascending: true });
+  return data || [];
+}
+
 /* ---------- צבעי כרטיס לפי קטגוריה ---------- */
 export const CARD_COLORS = {
   yellow: { bg: '#FFE9B0', fg: '#B45309', tint: '#FFF8E6', name: 'צהוב (הכלב)' },

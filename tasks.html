@@ -29,7 +29,7 @@
   <div id="list"><p class="empty">טוען...</p></div>
 </main>
 <script type="module">
-import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, ilDate, ilTime, addDays, weekStart, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
+import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, ilDate, ilTime, addDays, weekStart, reportCounts, loadReports, deriveStatus, nextSlot, STATUS } from './js/common.js';
 const { session, profiles } = await initPage({ active: 'tasks', title: 'המשימות שלנו' });
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 
@@ -50,7 +50,9 @@ const ws = weekStart();
 const since = addDays(ilDate(new Date()), -8);
 const { data: tasks, error } = await supabase.from('tasks').select('*')
   .eq('kind', 'occurrence').eq('active', true).gte('occurrence_date', since);
-const counts = error ? {} : await reportCounts((tasks || []).map(t => t.id));
+const reports = error ? [] : await loadReports((tasks || []).map(t => t.id));
+const counts = {}, lastBy = {};
+for (const r of reports) { counts[r.task_id] = (counts[r.task_id] || 0) + 1; lastBy[r.task_id] = r.user_id; }
 
 function inDay(t, which) {
   const today = ilDate(new Date());
@@ -84,7 +86,7 @@ function render() {
       ${iconBox(t)}
       <div class="tmain"><b>${esc(t.title)}${multi ? ` <span dir="ltr">(${c}/${t.times_required})</span>` : ''}</b><small>${due ? `<span dir="ltr">${esc(due)}</span>` : ''}</small></div>
       <span class="chip ${S.cls}">${icon(S.icon === 'clock' ? 'hourglass' : S.icon, 13)} ${S.label}</span>
-      ${avatar(byId[slot?.assignee_id], 36)}</a>`;
+      ${avatar(byId[(status === 'done' || c > 0) ? lastBy[t.id] : slot?.assignee_id], 36)}</a>`;
   }).join('');
 }
 render();

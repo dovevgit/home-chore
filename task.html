@@ -15,7 +15,7 @@
 <body>
 <main id="main"><p class="empty">טוען...</p></main>
 <script type="module">
-import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, ilTime, ilDate, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
+import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, ilTime, ilDate, reportCounts, loadReports, pointsFor, deriveStatus, nextSlot, STATUS } from './js/common.js';
 const { profiles } = await initPage({ title: 'פרטי משימה', back: 'tasks.html' });
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 const id = new URLSearchParams(location.search).get('id');
@@ -23,13 +23,30 @@ const main = document.getElementById('main');
 const { data: t } = id ? await supabase.from('tasks').select('*').eq('id', id).maybeSingle() : { data: null };
 if (!t) { main.innerHTML = '<p class="empty">המשימה לא נמצאה</p>'; }
 else {
-  const c = (await reportCounts([t.id]))[t.id] || 0;
+  const reps = await loadReports([t.id]);
+  const c = reps.length;
   const status = deriveStatus(t, c);
   const S = STATUS[status];
   const slot = nextSlot(t, c);
   const repeatTxt = t.repeat === 'weekly' ? 'שבועי' : t.repeat === 'daily' ? (t.times_required > 1 ? `${t.times_required} פעמים ביום` : 'פעם ביום') : 'חד-פעמי';
   const due = slot?.due_at ? `<span dir="ltr">${ilTime(new Date(slot.due_at))}</span>` : '—';
   document.title = 'הבית שלנו | ' + t.title;
+  const urls = {};
+  const paths = reps.map(r => r.photo_path).filter(Boolean);
+  if (paths.length) {
+    const { data: signed } = await supabase.storage.from('photos').createSignedUrls(paths, 3600);
+    (signed || []).forEach(sg => { if (sg.path && sg.signedUrl) urls[sg.path] = sg.signedUrl; });
+  }
+  const repsHtml = reps.length ? `<div class="card flat"><h3>דיווחים</h3>${reps.map(r => {
+    const who = byId[r.user_id];
+    const sl = (t.slots || [])[(r.payload?.slot_n || 1) - 1];
+    const pr = pointsFor(t, sl, new Date(r.created_at));
+    return `<div class="rep">${avatar(who, 38)}
+      <div style="flex:1;min-width:0"><b>${esc(who?.name || 'מישהו')}</b>
+        <div class="note" style="text-align:start;margin:0"><span dir="ltr">${ilTime(new Date(r.created_at))}</span> ${ilDate(new Date(r.created_at)) === ilDate(new Date()) ? 'היום' : ilDate(new Date(r.created_at))}${pr.late ? ' · באיחור' : ''}${r.body ? ' · ' + esc(r.body) : ''}</div></div>
+      ${urls[r.photo_path] ? `<img src="${urls[r.photo_path]}" alt="" style="width:52px;height:46px;border-radius:10px;object-fit:cover">` : ''}
+      <span class="pts" dir="ltr">+${pr.points}</span></div>`;
+  }).join('')}</div>` : '';
   main.innerHTML = `
     <div class="card flat dhead" style="background:${tintOf(t)}">${iconBox(t, 56)}
       <div style="flex:1"><div class="dtitle">${esc(t.title)}${t.times_required > 1 ? ` <span dir="ltr">(${c}/${t.times_required})</span>` : ''}</div></div></div>
@@ -43,6 +60,7 @@ else {
     </div>
     ${t.description ? `<div class="card flat"><h3>תיאור</h3><p>${esc(t.description)}</p></div>` : ''}
     ${t.tips ? `<div class="card flat"><h3>טיפים</h3><p>${esc(t.tips)}</p></div>` : ''}
+    ${repsHtml}
     ${status === 'done'
       ? '<button class="btn disabled" type="button" disabled>כל החזרות בוצעו</button>'
       : `<a class="btn" href="report.html?id=${t.id}">ביצעתי את המשימה</a>`}

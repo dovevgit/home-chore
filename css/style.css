@@ -128,3 +128,6 @@ body.login{padding:0;background:linear-gradient(180deg,#0D6EFD 0%,#3AB5FF 38%,#E
 .toast.err{background:#991B1B}
 .sys{background:#FFF1C2;border-radius:18px;padding:10px 14px;margin-bottom:8px;color:#5A4300;font-weight:600}
 .sys small{display:block;color:#7C3A00;font-weight:800}
+
+.rep{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.rep:last-child{border-bottom:0}
