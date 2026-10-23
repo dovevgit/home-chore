@@ -110,7 +110,7 @@ async function loadFeed() {
   if (!feed.length) { fEl.innerHTML = '<p class="empty">אין הודעות עדיין. כתבו הודעה ראשונה!</p>'; return; }
   fEl.innerHTML = feed.slice().reverse().map(m => m.type === 'system'
     ? `<div class="sys"><small>הודעת מערכת · ${ilTime(new Date(m.created_at))}</small>${esc(m.body)}</div>`
-    : `<div class="msg ${m.user_id === me?.id ? 'mine' : ''}">${m.user_id === me?.id ? '' : avatar(byId[m.user_id], 34)}
+    : `<div class="msg ${m.user_id === me?.id ? 'mine' : ''}">${avatar(byId[m.user_id], 34)}
         <div class="bubble">${m.user_id === me?.id ? '' : `<b>${esc(byId[m.user_id]?.name || 'מישהו')}</b>`}${m.photo_path ? '<div>📷 תמונה</div>' : ''}${m.body ? `<div>${esc(m.body)}</div>` : ''}<span class="mtime" dir="ltr">${ilTime(new Date(m.created_at))}</span></div></div>`).join('');
   let seen = ''; try { seen = localStorage.getItem('chatSeen') || ''; } catch (_) {}
   const n = feed.filter(m => m.user_id !== me?.id && (!seen || m.created_at > seen)).length;

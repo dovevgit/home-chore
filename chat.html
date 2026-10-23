@@ -53,7 +53,7 @@ function render(scroll) {
     if (m.type === 'system') return `${sep}<div class="sysmsg"><small>הודעת מערכת</small>${esc(m.body)} ${time}</div>`;
     const mine = m.user_id === me; const who = byId[m.user_id];
     const img = m.photo_path && urls[m.photo_path] ? `<img class="mimg" src="${urls[m.photo_path]}" alt="תמונה" data-src="${urls[m.photo_path]}">` : '';
-    return `${sep}<div class="msg ${mine ? 'mine' : ''}">${mine ? '' : avatar(who, 36)}
+    return `${sep}<div class="msg ${mine ? 'mine' : ''}">${avatar(who, 36)}
       <div class="bubble">${mine ? '' : `<b>${esc(who?.name || 'מישהו')}</b>`}${img}${m.body ? `<div>${esc(m.body)}</div>` : ''}${time}</div></div>`;
   }).join('');
   if (nearEnd) window.scrollTo(0, document.body.scrollHeight);
