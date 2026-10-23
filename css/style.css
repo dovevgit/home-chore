@@ -202,3 +202,16 @@ body.chatpage{padding-bottom:calc(88px + env(safe-area-inset-bottom))}
 .stack .more{font-size:11px;font-weight:800;color:var(--blue);margin-inline-start:6px}
 .card.mine{margin-top:12px}
 .minehd{display:flex;align-items:center;gap:12px;margin-bottom:10px}.minehd b{font-size:18px;display:block}.minehd small{color:var(--text2);font-weight:700}
+
+/* בקשות מיוחדות */
+.req{background:#fff;border-radius:16px;padding:10px 12px;margin-bottom:8px;box-shadow:0 2px 6px rgba(31,41,55,.06);border-inline-start:6px solid var(--blue)}
+.req.taken{border-inline-start-color:#F59E0B}.req.done{border-inline-start-color:#22C55E;opacity:.85}.req.declined{border-inline-start-color:#9CA3AF;opacity:.7}
+.reqtop{display:flex;align-items:flex-start;gap:10px}.reqmain{flex:1;min-width:0;display:flex;flex-direction:column}
+.reqmain b{font-size:17px;overflow-wrap:anywhere}.reqmain small{color:var(--text2);font-weight:700}
+.reqdel{border:0;background:transparent;color:#9CA3AF;padding:4px;cursor:pointer}
+.reqfoot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.rbtn{border:2px solid var(--blue);background:#fff;color:#0A58CA;border-radius:999px;font:inherit;font-weight:800;font-size:15px;padding:6px 14px;cursor:pointer}
+.rbtn.go{background:var(--blue);color:#fff}
+.reqcard{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;background:#fff;border-radius:16px;padding:12px 14px;margin-bottom:8px;box-shadow:0 2px 6px rgba(31,41,55,.06)}
+.reqcard b{flex:1;font-size:17px}
+textarea{width:100%;min-height:80px;border:1.5px solid var(--field);border-radius:14px;padding:10px 14px;background:#fff}
