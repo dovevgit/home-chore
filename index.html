@@ -24,6 +24,8 @@
     <div class="stats" id="stats"><p class="empty" style="flex:1">טוען...</p></div></div>
   <div class="sec-title">בני המשפחה</div>
   <div class="family" id="family"></div>
+  <div id="outAdmin"></div>
+  <button type="button" class="reqcard outcard" id="outBtn"></button>
   <a class="reqcard" href="requests.html" id="reqCard"><span id="reqIcon"></span><b id="reqTitle">אין בקשות</b><span id="reqBadge"></span></a>
   <div class="sec-head"><div class="sec-title">המשימות של היום</div><a href="tasks.html">הצג הכל</a></div>
   <div id="tasks"><p class="empty">טוען...</p></div>
@@ -56,8 +58,10 @@ document.getElementById('leader').innerHTML = leaders.length ? `
     <span class="crown">${icon('crown', 26)}</span></div>` : '';
 const { data: awayRows } = await supabase.from('absences').select('user_id,reason').lte('start_date', today).gte('end_date', today);
 const away = Object.fromEntries((awayRows || []).map(r => [r.user_id, r.reason]));
+const { data: outRows } = await supabase.rpc('current_outings');
+const outNow = Object.fromEntries((outRows || []).map(r => [r.user_id, r.reason]));
 document.getElementById('family').innerHTML = users.map(p => `
-  <button type="button" class="avn ${away[p.id] ? 'away' : ''}" data-uid="${p.id}" aria-label="הכרטיס של ${esc(p.name)}">${avatar(p, 54)}<span class="avname">${esc(p.name)}</span>${away[p.id] ? `<span class="abs-tag">נעדר/ת</span><span class="apts abs-why">${esc(away[p.id])}</span>` : `<span class="apts" dir="ltr">${pointsByUser[p.id] || 0}</span>`}</button>`).join('');
+  <button type="button" class="avn ${away[p.id] ? 'away' : ''}" data-uid="${p.id}" aria-label="הכרטיס של ${esc(p.name)}">${avatar(p, 54)}<span class="avname">${esc(p.name)}</span>${away[p.id] ? `<span class="abs-tag">נעדר/ת</span><span class="apts abs-why">${esc(away[p.id])}</span>` : outNow[p.id] ? `<span class="abs-tag out">לא בבית</span><span class="apts abs-why">${esc(outNow[p.id])}</span>` : `<span class="apts" dir="ltr">${pointsByUser[p.id] || 0}</span>`}</button>`).join('');
 
 /* --- כרטיס משתמש --- */
 const dmy = d => d.split('-').reverse().join('.');
@@ -111,6 +115,83 @@ function showBday() {
   document.getElementById('bday').innerHTML = t.length ? t.map(u => `<div class="bdaycard">🎂 יום הולדת שמח, ${esc(u.name)}! 🎉</div>`).join('') : '';
 }
 showBday();
+
+/* --- אני לא בבית --- */
+const OUT_REASONS = ['לינה אצל חברה', 'טיול', 'בילוי', 'אחר'];
+const telOf = v => String(v || '').replace(/[^\d+]/g, '');
+let outs = [];
+const outDates = o => o.start_date === o.end_date ? dmy(o.start_date) : `${dmy(o.start_date)} עד ${dmy(o.end_date)}`;
+async function loadOuts() {
+  const { data, error } = await supabase.from('outings').select('*').is('returned_at', null).gte('end_date', today).order('start_date');
+  outs = error ? [] : (data || []); renderOuts();
+}
+function renderOuts() {
+  const mine = outs.filter(o => o.user_id === me?.id);
+  const b = document.getElementById('outBtn');
+  b.innerHTML = `<span>${icon('house', 26)}</span><b>${mine.length ? `רשום/ה כלא בבית: ${esc(mine[0].reason)} · ${outDates(mine[0])}` : 'אני לא בבית'}</b>`;
+  b.classList.toggle('active', mine.length > 0);
+  b.onclick = () => mine.length ? showOut(mine[0]) : openOut(null);
+  const others = me?.role === 'admin' ? outs.filter(o => o.user_id !== me.id) : [];
+  document.getElementById('outAdmin').innerHTML = others.length ? `<div class="sec-title">לא בבית</div>` + others.map(o => outCardHtml(o)).join('') : '';
+}
+function outCardHtml(o) {
+  const p = byId[o.user_id];
+  const when = o.start_date > today ? `מתחיל ב-${dmy(o.start_date)}` : outDates(o);
+  return `<div class="card outinfo" style="margin-bottom:8px"><div class="outhead">${avatar(p, 44)}<div><b>${esc(p?.name || '')} · ${esc(o.reason)}</b><small>${when}</small></div></div>
+    <div class="outrow"><span>איפה</span><b>${esc(o.place)}</b></div>
+    ${o.with_whom ? `<div class="outrow"><span>עם מי</span><b>${esc(o.with_whom)}</b></div>` : ''}
+    <div class="outrow"><span>טלפון</span><b dir="ltr">${esc(o.phone)}</b></div>
+    ${o.address ? `<div class="outrow"><span>כתובת</span><b>${esc(o.address)}</b></div>` : ''}
+    ${o.note ? `<div class="outrow"><span>הערה</span><b>${esc(o.note)}</b></div>` : ''}
+    <div class="outbtns"><a class="ibtn call" href="tel:${esc(telOf(o.phone))}" aria-label="חיוג">${icon('phone', 20)}</a>
+    ${o.address ? `<a class="ibtn" href="https://waze.com/ul?q=${encodeURIComponent(o.address)}&navigate=yes" target="_blank" rel="noopener" aria-label="ניווט">${icon('map-pin', 20)}</a>` : ''}</div></div>`;
+}
+function showOut(o) {
+  pc.innerHTML = `<button type="button" class="modal-x" id="px" aria-label="סגירה">${icon('x', 20)}</button><h2 style="margin:0 0 10px">אני לא בבית</h2>
+    ${outCardHtml(o)}
+    <button class="btn" id="oBack" type="button">חזרתי הביתה</button>
+    <button class="btn secondary" id="oEdit" type="button">עריכה</button>
+    <button class="btn secondary" id="oDel" type="button" style="color:#B91C1C;border-color:#EF4444">מחיקה</button>`;
+  pm.classList.remove('hidden');
+  pc.querySelector('#px').onclick = () => pm.classList.add('hidden');
+  pc.querySelector('#oEdit').onclick = () => openOut(o);
+  pc.querySelector('#oBack').onclick = async () => { await supabase.from('outings').update({ returned_at: new Date().toISOString() }).eq('id', o.id); pm.classList.add('hidden'); await loadOuts(); };
+  pc.querySelector('#oDel').onclick = async () => { if (!confirm('למחוק?')) return; await supabase.from('outings').delete().eq('id', o.id); pm.classList.add('hidden'); await loadOuts(); };
+}
+function openOut(o) {
+  const r = o || { reason: OUT_REASONS[0], start_date: today, end_date: today, place: '', with_whom: '', phone: '', address: '', note: '' };
+  let reason = OUT_REASONS.includes(r.reason) ? r.reason : 'אחר';
+  pc.innerHTML = `<button type="button" class="modal-x" id="px" aria-label="סגירה">${icon('x', 20)}</button>
+    <h2 style="margin:0 0 6px">${o ? 'עדכון' : 'אני לא בבית'}</h2>
+    <label>לאן / למה</label><div class="who" id="oRs">${OUT_REASONS.map(x => `<button type="button" class="whochip ${x === reason ? 'on' : ''}" data-r="${x}">${x}</button>`).join('')}</div>
+    <div class="grid2"><div><label for="oFrom">מתאריך</label><input id="oFrom" type="date" value="${r.start_date}" dir="ltr"></div>
+    <div><label for="oTo">עד תאריך</label><input id="oTo" type="date" value="${r.end_date}" dir="ltr"></div></div>
+    <label for="oPlace">איפה (שם החברה או המקום)</label><input id="oPlace" maxlength="100" value="${esc(r.place)}">
+    <label for="oWith">שם ההורה / המבוגר האחראי</label><input id="oWith" maxlength="80" value="${esc(r.with_whom || '')}">
+    <label for="oPhone">טלפון (של החברה או של ההורה שלה)</label><input id="oPhone" type="tel" maxlength="30" dir="ltr" value="${esc(r.phone)}" inputmode="tel">
+    <label for="oAddr">כתובת</label><input id="oAddr" maxlength="200" value="${esc(r.address || '')}" placeholder="רחוב, מספר, עיר">
+    <label for="oNote">הערה (לא חובה)</label><input id="oNote" maxlength="200" value="${esc(r.note || '')}">
+    <p class="error" id="oErr" role="alert"></p>
+    <button class="btn" id="oSave" type="button">שמירה</button>`;
+  pm.classList.remove('hidden');
+  pc.querySelector('#px').onclick = () => pm.classList.add('hidden');
+  pc.querySelector('#oRs').onclick = e => { const b = e.target.closest('[data-r]'); if (!b) return; reason = b.dataset.r; pc.querySelectorAll('#oRs .whochip').forEach(x => x.classList.toggle('on', x === b)); };
+  pc.querySelector('#oSave').onclick = async () => {
+    const q = id => pc.querySelector(id).value.trim();
+    const row = { reason, start_date: q('#oFrom'), end_date: q('#oTo'), place: q('#oPlace'), with_whom: q('#oWith') || null, phone: q('#oPhone'), address: q('#oAddr') || null, note: q('#oNote') || null };
+    const err = m => { pc.querySelector('#oErr').textContent = m; };
+    if (!row.start_date || !row.end_date) return err('צריך לבחור תאריכים');
+    if (row.end_date < row.start_date) return err('תאריך הסיום לפני תאריך ההתחלה');
+    if (!row.place) return err('צריך לכתוב איפה');
+    if (row.phone.replace(/\D/g, '').length < 7) return err('צריך מספר טלפון תקין');
+    if (reason === 'לינה אצל חברה' && !row.address) return err('בלינה אצל חברה צריך גם כתובת');
+    pc.querySelector('#oSave').disabled = true;
+    const res = o ? await supabase.from('outings').update(row).eq('id', o.id) : await supabase.from('outings').insert({ ...row, user_id: me.id });
+    if (res.error) { pc.querySelector('#oSave').disabled = false; return err('השמירה נכשלה: ' + res.error.message); }
+    pm.classList.add('hidden'); await loadOuts();
+  };
+}
+loadOuts();
 
 /* --- המשימות של היום וסיכום --- */
 const { data: all, error: tErr } = await supabase.from('tasks').select('*').eq('kind', 'occurrence').eq('active', true).gte('occurrence_date', addDays(today, -1)).lte('occurrence_date', today);
