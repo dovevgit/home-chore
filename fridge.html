@@ -41,7 +41,7 @@
 .pt{border:1.5px solid rgba(31,41,55,.3);background:#fff;border-radius:999px;font:inherit;font-weight:700;font-size:14px;padding:4px 12px;cursor:pointer}
 .pt.on{background:var(--blue);color:#fff;border-color:var(--blue)}
 
-main{overscroll-behavior:contain}.modal-card{overscroll-behavior:contain}
+main{overscroll-behavior:contain}.fphoto{object-fit:cover!important;border-radius:3px}.modal-card{overscroll-behavior:contain}
 </style>
 </head>
 <body class="fridgepage">
@@ -82,8 +82,9 @@ function render() {
   $('fempty').classList.toggle('hidden', notes.length > 0);
   $('notes').innerHTML = notes.map(n => `<button type="button" class="fnote" data-id="${n.id}" style="left:${n.x}%;top:${n.y}%;transform:rotate(${n.rot}deg);background:${COLORS[n.color] || COLORS.yellow}">
     <i class="mg"></i><span class="fav">${avatar(byId[n.user_id], 26)}</span>
+    ${n.photo ? `<img class="fdraw fphoto" src="${n.photo}" alt="">` : ''}
     ${n.drawing ? `<img class="fdraw ${n.body ? 'short' : ''}" src="${n.drawing}" alt="">` : ''}
-    ${n.body ? `<span class="ftxt ${n.drawing ? 'one' : ''}">${esc(n.body)}</span>` : ''}</button>`).join('');
+    ${n.body ? `<span class="ftxt ${n.drawing || n.photo ? 'one' : ''}">${esc(n.body)}</span>` : ''}</button>`).join('');
 }
 $('notes').addEventListener('click', e => { const b = e.target.closest('.fnote'); if (b) openNote(notes.find(n => n.id === b.dataset.id)); });
 const close = () => { $('modal').classList.add('hidden'); document.body.style.overflow = ''; };
@@ -95,6 +96,7 @@ function openNote(n) {
   $('modalCard').innerHTML = `<button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 20)}</button>
     <div class="ncard" style="background:${COLORS[n.color] || COLORS.yellow}">
       <div class="nhead">${avatar(p, 48)}<div><b>${esc(p?.name || 'מישהו')}</b><small>${ago(n.created_at)}</small></div></div>
+      ${n.photo ? `<img class="nbig" src="${n.photo}" alt="">` : ''}
       ${n.drawing ? `<img class="nbig" src="${n.drawing}" alt="">` : ''}
       ${n.body ? `<p class="nbody">${esc(n.body)}</p>` : ''}</div>
     ${(n.user_id === me || isAdmin) ? `<button class="btn secondary" id="ndel" type="button" style="color:#B91C1C;border-color:#EF4444">מחיקת הפתק</button>` : ''}`;
@@ -125,7 +127,7 @@ function pickSpot() {
 
 function openAdd() {
   document.body.style.overflow = 'hidden';
-  let color = 'yellow', drawing = false, hasInk = false, tool = 'pen', pen = '#1F2937', size = 5, hist = [];
+  let photoUrl = null, color = 'yellow', drawing = false, hasInk = false, tool = 'pen', pen = '#1F2937', size = 5, hist = [];
   $('modalCard').innerHTML = `<button type="button" class="modal-x" id="mx" aria-label="סגירה">${icon('x', 20)}</button>
     <h2 style="margin:0 0 6px;font-size:20px">פתק חדש</h2>
     <div class="ncard" id="prev" style="background:${COLORS.yellow};padding:10px">
@@ -138,6 +140,9 @@ function openAdd() {
           <button type="button" class="pt" id="er">מחק</button><button type="button" class="pt" id="un">ביטול</button><button type="button" class="pt" id="cl">נקה</button>
         </div></div></div>
     <div class="who" id="cols" style="margin-top:10px;justify-content:center">${Object.entries(COLORS).map(([k, c]) => `<button type="button" class="pc big ${k === color ? 'on' : ''}" data-k="${k}" style="background:${c}" aria-label="${k}"></button>`).join('')}</div>
+    <div id="pprev" class="hidden" style="position:relative;margin-top:8px"><img id="pimg" alt="" style="width:100%;max-height:220px;object-fit:contain;border-radius:10px;background:#F3F4F6"><button type="button" class="modal-x" id="prm" aria-label="הסרת התמונה" style="top:6px">${icon('x', 18)}</button></div>
+    <div class="grid2" style="margin-top:6px"><button class="btn secondary small" id="tcam" type="button" style="margin:0">📷 צילום</button><button class="btn secondary small" id="tgal" type="button" style="margin:0">🖼️ תמונה</button></div>
+    <input type="file" id="fcam" accept="image/*" capture="environment" hidden><input type="file" id="fgal" accept="image/*" hidden>
     <button class="btn secondary" id="tdraw" type="button" style="margin-top:6px">✏️ הוספת ציור</button>
     <p class="error" id="nerr" role="alert"></p>
     <button class="btn" id="nsave" type="button">הדבקה על המקרר</button>`;
@@ -178,7 +183,31 @@ function openAdd() {
     mark();
   };
   mark();
-  $('tdraw').onclick = () => { drawing = !drawing; $('padbox').classList.toggle('hidden', !drawing); $('nt').style.minHeight = drawing ? '44px' : '80px'; $('tdraw').textContent = drawing ? 'בלי ציור' : '✏️ הוספת ציור'; };
+  const sync = () => {
+    $('tdraw').disabled = !!photoUrl; $('tcam').disabled = $('tgal').disabled = drawing;
+    $('pprev').classList.toggle('hidden', !photoUrl); if (photoUrl) $('pimg').src = photoUrl;
+  };
+  const shrink = file => new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, 640 / Math.max(im.width, im.height)), w = Math.round(im.width * k), h = Math.round(im.height * k);
+      const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(im, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      let q = 0.72, out = c.toDataURL('image/jpeg', q);
+      while (out.length > 250000 && q > 0.3) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
+      res(out);
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('bad image')); };
+    im.src = url;
+  });
+  const pick = async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try { photoUrl = await shrink(f); sync(); } catch (_) { $('nerr').textContent = 'לא הצלחנו לקרוא את התמונה'; }
+  };
+  $('tcam').onclick = () => $('fcam').click(); $('tgal').onclick = () => $('fgal').click();
+  $('fcam').onchange = pick; $('fgal').onchange = pick;
+  $('prm').onclick = () => { photoUrl = null; sync(); };
+  $('tdraw').onclick = () => { drawing = !drawing; sync(); $('padbox').classList.toggle('hidden', !drawing); $('nt').style.minHeight = drawing ? '44px' : '80px'; $('tdraw').textContent = drawing ? 'בלי ציור' : '✏️ הוספת ציור'; };
   $('nsave').onclick = async () => {
     const body = $('nt').value.trim();
     let img = null;
@@ -186,9 +215,9 @@ function openAdd() {
       img = cv.toDataURL('image/png');
       if (img.length > 200000) { const s = document.createElement('canvas'); s.width = s.height = 220; s.getContext('2d').drawImage(cv, 0, 0, 220, 220); img = s.toDataURL('image/png'); }
     }
-    if (!body && !img) { $('nerr').textContent = 'כתבו משהו או צרו ציור'; return; }
+    if (!body && !img && !photoUrl) { $('nerr').textContent = 'כתבו משהו, צרו ציור או הוסיפו תמונה'; return; }
     $('nsave').disabled = true;
-    const { error } = await supabase.from('fridge_notes').insert({ user_id: me, body: body || null, drawing: img, color, ...pickSpot() });
+    const { error } = await supabase.from('fridge_notes').insert({ user_id: me, body: body || null, drawing: img, photo: photoUrl, color, ...pickSpot() });
     if (error) { $('nerr').textContent = 'השמירה נכשלה: ' + error.message; $('nsave').disabled = false; return; }
     close(); await load();
   };
