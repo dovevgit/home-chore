@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | אני לא בבית</title>
+<meta name="theme-color" content="#0D6EFD">
+<meta name="color-scheme" content="only light">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <button class="btn" id="new" type="button" style="margin-top:0">אני לא בבית</button>
+  <p class="note">רושמים כשהולכים לישון אצל חברה, לטיול או לכל מקום מחוץ לבית. כל המשפחה רואה את הפרטים.</p>
+  <div class="sec-title">הרישומים שלי</div>
+  <div id="mine"><p class="empty">טוען...</p></div>
+  <div class="sec-title">מי עוד לא בבית</div>
+  <div id="others"></div>
+</main>
+<div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
+<script type="module">
+import { initPage, supabase, ilDate } from './js/common.js';
+import { outCardHtml, outAction, openOutForm } from './js/outings.js';
+const { me, profiles, isAdmin } = await initPage({ active: 'outing', title: 'אני לא בבית', back: 'index.html' });
+const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
+const today = ilDate(new Date());
+const $ = id => document.getElementById(id);
+const host = { modal: $('modal'), card: $('modalCard') };
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) $('modal').classList.add('hidden'); });
+let outs = [];
+const ctx = () => ({ host, me, today, isAdmin, byId, onDone: load });
+async function load() {
+  const { data, error } = await supabase.from('outings').select('*').is('returned_at', null).gte('end_date', today).order('start_date');
+  outs = error ? [] : (data || []);
+  const mine = outs.filter(o => o.user_id === me?.id), others = outs.filter(o => o.user_id !== me?.id);
+  $('mine').innerHTML = mine.length ? mine.map(o => outCardHtml(o, byId, today, true)).join('') : '<p class="empty">אין רישום פעיל</p>';
+  $('others').innerHTML = others.length ? others.map(o => outCardHtml(o, byId, today, isAdmin)).join('') : '<p class="empty">כולם בבית</p>';
+}
+document.querySelector('main').addEventListener('click', e => {
+  const b = e.target.closest('[data-oa]'); if (!b) return;
+  const o = outs.find(x => x.id === b.dataset.id); if (o) outAction(b.dataset.oa, o, ctx());
+});
+$('new').onclick = () => openOutForm(host, { me, existing: null, today, onDone: load });
+await load();
+</script>
+</body>
+</html>
