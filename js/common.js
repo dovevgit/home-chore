@@ -135,6 +135,7 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
       <a href="requests.html">${icon('hand-heart')} בקשות מיוחדות</a>
       <a href="chat.html">${icon('message-circle')} הודעות משפחתיות</a>
       <a href="fridge.html">${icon('sticky-note')} פתקים על המקרר</a>
+      <a href="outing.html">${icon('house')} אני לא בבית</a>
       <a href="info.html">${icon('info')} מידע משפחתי</a>
       ${isAdmin ? `<a href="admin.html">${icon('settings')} ניהול</a>` : ''}
       <button id="logout" type="button">${icon('log-out')} התנתקות</button></nav>`;
