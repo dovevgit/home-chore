@@ -41,16 +41,19 @@
 .pt{border:1.5px solid rgba(31,41,55,.3);background:#fff;border-radius:999px;font:inherit;font-weight:700;font-size:14px;padding:4px 12px;cursor:pointer}
 .pt.on{background:var(--blue);color:#fff;border-color:var(--blue)}
 
-main{overscroll-behavior:contain}.fphoto{object-fit:cover!important;border-radius:3px}.modal-card{overscroll-behavior:contain}
+main{overscroll-behavior:contain}.fphoto{object-fit:cover!important;border-radius:3px}
+.fbar{height:64px;display:flex;align-items:center;justify-content:center;padding:0 14px;background:#E8F2FF;border-bottom:1px solid #C9DDF5}
+.fnew{width:100%;max-width:420px;height:46px;border:0;border-radius:999px;background:var(--blue);color:#fff;font:inherit;font-size:19px;font-weight:800;box-shadow:0 4px 10px rgba(13,110,253,.35);cursor:pointer}
+.fridge{height:calc(100dvh - 76px - 64px - env(safe-area-inset-top))!important}.modal-card{overscroll-behavior:contain}
 </style>
 </head>
 <body class="fridgepage">
 <main style="padding:0;max-width:none">
+  <div class="fbar"><button type="button" id="fadd" class="fnew">+ פתק חדש</button></div>
   <div class="fridge" id="fridge">
     <div class="fz"></div><div class="hd hd1"></div><div class="hd hd2"></div>
     <div id="notes"></div>
     <p class="fempty hidden" id="fempty">המקרר ריק. הוסיפו פתק ראשון!</p>
-    <button type="button" class="fab" id="fadd" aria-label="פתק חדש">+</button>
   </div>
 </main>
 <div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
