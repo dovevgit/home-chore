@@ -259,3 +259,41 @@ button.avn{background:none;border:0;font:inherit;color:inherit;cursor:pointer;pa
 .bdaycard{margin:0 0 12px;padding:14px;text-align:center;font-size:22px;font-weight:800;color:#7A1F5C;background:linear-gradient(135deg,#FFE0F0,#FFD1A8);border:3px solid #FF7AC8;border-radius:20px}
 .bdi{font-size:14px;margin-inline-start:2px}
 .calbday{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#FFE0F0,#FFD1A8);border:2px solid #FF7AC8;border-radius:14px;padding:8px 12px;margin-bottom:8px;color:#7A1F5C;font-size:17px}
+
+/* פתקים על המקרר */
+.fridge{position:relative;overflow:hidden;height:calc(100dvh - 76px - env(safe-area-inset-top));background:linear-gradient(90deg,#CBD6E0,#EEF3F8 14%,#F7FAFC 50%,#EEF3F8 86%,#C3CFDA)}
+.fridge .fz{position:absolute;inset-inline:0;top:30%;height:7px;background:linear-gradient(180deg,#9AA8B6,#C9D4DE);box-shadow:0 2px 4px rgba(31,41,55,.25)}
+.fridge .hd{position:absolute;right:12px;width:14px;border-radius:8px;background:linear-gradient(90deg,#8C99A6,#E7EDF2 45%,#9AA7B3);box-shadow:0 2px 5px rgba(31,41,55,.35)}
+.fridge .hd1{top:19%;height:9%}.fridge .hd2{top:40%;height:20%}
+.fnote{position:absolute;width:34%;aspect-ratio:1;border:0;border-radius:3px 3px 8px 3px;padding:30px 8px 8px;font:inherit;text-align:start;cursor:pointer;box-shadow:0 5px 10px rgba(31,41,55,.28);display:flex;flex-direction:column;gap:2px;overflow:hidden;color:#1F2937}
+.fnote .mg{position:absolute;top:6px;left:50%;margin-left:-8px;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#FF8A8A,#D62828);box-shadow:0 2px 3px rgba(0,0,0,.35)}
+.fnote .fav{position:absolute;top:4px;inset-inline-start:5px;line-height:0}
+.fnote .ftxt{font-size:14px;font-weight:700;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.fnote .ftxt.one{-webkit-line-clamp:1;font-size:12.5px}
+.fnote .fdraw{width:100%;flex:1;min-height:0;object-fit:contain}
+.fempty{position:absolute;inset-inline:0;top:42%;text-align:center;font-size:19px;font-weight:700;color:#6B7280;margin:0}
+.fab{position:absolute;bottom:18px;inset-inline-start:18px;width:62px;height:62px;border-radius:50%;border:0;background:var(--blue);color:#fff;font-size:38px;line-height:1;box-shadow:0 6px 14px rgba(13,110,253,.45);cursor:pointer}
+.ncard{border-radius:12px;padding:14px;box-shadow:inset 0 0 0 1px rgba(31,41,55,.08)}
+.ncard .nhead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.ncard .nhead small{display:block;color:#4B5563;font-weight:700}
+.ncard .nbig{width:100%;display:block;border-radius:8px;background:rgba(255,255,255,.35)}
+.ncard .nbody{font-size:20px;font-weight:700;line-height:1.4;margin:8px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+#pad{width:100%;aspect-ratio:1;display:block;touch-action:none;background:rgba(255,255,255,.55);border-radius:10px;border:2px dashed rgba(31,41,55,.25)}
+.ptools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.pc{width:30px;height:30px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1.5px rgba(31,41,55,.3);cursor:pointer;padding:0}
+.pc.big{width:40px;height:40px}
+.pc.on{box-shadow:0 0 0 3px var(--blue)}
+.pt{border:1.5px solid rgba(31,41,55,.3);background:#fff;border-radius:999px;font:inherit;font-weight:700;font-size:14px;padding:4px 12px;cursor:pointer}
+.pt.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* אני לא בבית */
+.outcard{width:100%;border:0;font:inherit;text-align:start;cursor:pointer}
+.outcard b{flex:1}
+.outcard.active{background:linear-gradient(135deg,#D6EBFF,#A9D3FF);border:2px solid #3AA0FF}
+.abs-tag.out{color:#0B4FB3;background:#D6E7FF}
+.outinfo .outhead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.outinfo .outhead small{display:block;color:var(--text2);font-weight:700}
+.outrow{display:flex;gap:10px;padding:5px 0;border-top:1px solid #EEF2F7;font-size:16px}
+.outrow span{color:var(--text2);width:56px;flex:none;font-weight:700}
+.outrow b{flex:1;min-width:0;overflow-wrap:anywhere}
+.outbtns{display:flex;gap:10px;margin-top:8px}
