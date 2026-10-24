@@ -128,6 +128,7 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
     const drawer = document.createElement('div');
     drawer.className = 'drawer hidden';
     drawer.innerHTML = `<div class="drawer-bg"></div><nav class="drawer-panel">
+      ${isAdmin ? `<a href="admin.html" class="admin-link">${icon('settings')} ניהול</a><hr class="drawer-sep">` : ''}
       <a href="index.html">${icon('house')} בית</a>
       <a href="tasks.html?me=1">${icon('list-checks')} המשימות שלי</a>
       <a href="calendar.html">${icon('calendar-days')} לוח שנה</a>
@@ -137,7 +138,6 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
       <a href="fridge.html">${icon('sticky-note')} פתקים על המקרר</a>
       <a href="outing.html">${icon('house')} אני לא בבית</a>
       <a href="info.html">${icon('info')} מידע משפחתי</a>
-      ${isAdmin ? `<a href="admin.html">${icon('settings')} ניהול</a>` : ''}
       <button id="logout" type="button">${icon('log-out')} התנתקות</button></nav>`;
     document.body.append(drawer);
     document.getElementById('menuBtn')?.addEventListener('click', () => drawer.classList.remove('hidden'));
