@@ -303,3 +303,9 @@ button.avn{background:none;border:0;font:inherit;color:inherit;cursor:pointer;pa
 .crow input{height:46px;min-width:0;padding:0 10px;font-size:16px}
 .crow input[type=tel]{flex:0 0 47%;padding:0 8px}
 .ibtn.sm{width:36px;height:36px}
+
+/* כפתור ניהול בתפריט הצד: ראשון, בזהב */
+.drawer-panel a.admin-link{background:linear-gradient(135deg,#FFD36B,#F5A400);color:#5A2A00;font-weight:800;box-shadow:0 2px 6px rgba(245,164,0,.45);border:2px solid #E08A00}
+.drawer-panel a.admin-link:hover{background:linear-gradient(135deg,#FFDA80,#F8AE1A)}
+.drawer-panel a.admin-link svg{color:#5A2A00}
+.drawer-sep{border:0;height:1px;background:#E5EAF0;margin:4px 6px 2px;width:calc(100% - 12px)}
