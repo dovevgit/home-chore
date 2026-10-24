@@ -20,6 +20,7 @@
   <div id="announce"></div>
   <div id="bday"></div>
   <div id="outBar"></div>
+  <div id="shopBar"></div>
   <div id="leader"></div>
   <div class="card" style="margin-bottom:8px"><div class="sec-title" style="margin:0">סיכום היום</div>
     <div class="stats" id="stats"><p class="empty" style="flex:1">טוען...</p></div></div>
@@ -128,6 +129,13 @@ document.getElementById('outBar').addEventListener('click', e => {
   if (o) showOutDetails(outHost, o, { host: outHost, me, today, isAdmin: me?.role === 'admin', byId, onDone: loadOuts });
 });
 loadOuts();
+// מנהלים: התראה על בקשות מימוש מהחנות שממתינות לאישור
+(async () => {
+  if (me?.role !== 'admin') return;
+  const { data } = await supabase.from('purchases').select('id').eq('status', 'pending');
+  const n = (data || []).length;
+  document.getElementById('shopBar').innerHTML = n ? `<a class="outbar" href="shop.html" style="text-decoration:none;background:linear-gradient(135deg,#FFF3C4,#FFD36B);border-color:#F5A400;color:#5A2A00">${icon('gift', 22)}<b>${n === 1 ? 'בקשת מימוש אחת מחכה' : n + ' בקשות מימוש מחכות'} לאישור</b></a>` : '';
+})();
 
 /* --- המשימות של היום וסיכום --- */
 const { data: all, error: tErr } = await supabase.from('tasks').select('*').eq('kind', 'occurrence').eq('active', true).gte('occurrence_date', addDays(today, -1)).lte('occurrence_date', today);

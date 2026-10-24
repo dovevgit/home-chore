@@ -132,7 +132,7 @@ async function showList() {
     toast(error ? 'השמירה נכשלה: ' + error.message : 'נשמר', !!error);
   };
   document.getElementById('wipeRep').onclick = async (e) => {
-    if (!confirm('למחוק את כל הדיווחים וההיסטוריה? הנקודות יתאפסו ואי אפשר לשחזר.')) return;
+    if (!confirm('למחוק את כל הדיווחים וההיסטוריה? הנקודות יתאפסו (כולל יתרות החנות) ואי אפשר לשחזר.')) return;
     e.target.disabled = true;
     try {
       const { data: reps } = await supabase.from('feed').select('id,photo_path').eq('type', 'report');
