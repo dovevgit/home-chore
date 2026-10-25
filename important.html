@@ -158,16 +158,17 @@ const row = (m, urls, extra, listHtml = '') => {
     ${m.photo_path && urls[m.photo_path] ? `<img class="mi" src="${urls[m.photo_path]}" alt="תמונה">` : ''}
     ${m.body ? `<p>${esc(m.body)}</p>` : ''}${listHtml}${extra}</div>`;
 };
-const COLS = 'id,sender_id,to_users,body,photo_path,parent_id,kind,items,created_at';
+const COLS = 'id,sender_id,to_users,body,photo_path,parent_id,kind,items,hidden_by,created_at';
+const visible = m => !(m.hidden_by || []).includes(me.id);
 async function load() {
   const { data, error } = await supabase.from('important_msgs').select(COLS).order('created_at', { ascending: false }).limit(40);
   if (error) { $('sent').innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; $('got').innerHTML = ''; return; }
-  const all = data || [];
+  const all = (data || []).filter(visible);
   const myReads = ((await supabase.from('important_reads').select('msg_id,checked,saved').eq('user_id', me.id)).data || []);
   const savedReads = myReads.filter(r => r.saved);
   const have = new Set(all.map(m => m.id));
   const missing = savedReads.map(r => r.msg_id).filter(id => !have.has(id));
-  const extra = missing.length ? ((await supabase.from('important_msgs').select(COLS).in('id', missing)).data || []) : [];
+  const extra = missing.length ? ((await supabase.from('important_msgs').select(COLS).in('id', missing)).data || []).filter(visible) : [];
   const byMsg = Object.fromEntries([...all, ...extra].map(m => [m.id, m]));
   const sent = all.filter(m => m.sender_id === me.id).slice(0, 15);
   const got = all.filter(m => m.sender_id !== me.id).slice(0, 15);
@@ -175,15 +176,15 @@ async function load() {
   const urls = await signedUrls([...all, ...extra].map(m => m.photo_path));
   const reads = sent.length ? ((await supabase.from('important_reads').select('msg_id,user_id,opened_at,done').in('msg_id', sent.map(m => m.id))).data || []) : [];
   const savedMsgs = savedReads.map(r => byMsg[r.msg_id]).filter(Boolean).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  $('saved').innerHTML = savedMsgs.length ? savedMsgs.map(m => row(m, urls, `<button class="xbtn" type="button" data-unsave="${m.id}">הסר מהשמורות</button>`, listUl(m, savedReads.find(r => r.msg_id === m.id)?.checked || [], true))).join('') : '<p class="empty">אין הודעות שמורות. בחלונית ההודעה יש כפתור "שמור אצלי"</p>';
+  $('saved').innerHTML = savedMsgs.length ? savedMsgs.map(m => row(m, urls, `${m.sender_id !== me.id ? `<button class="xbtn" type="button" data-thread="${m.sender_id}">פתח שיחה</button>` : ''}<button class="xbtn" type="button" data-unsave="${m.id}">הסר מהשמורות</button>`, listUl(m, savedReads.find(r => r.msg_id === m.id)?.checked || [], true))).join('') : '<p class="empty">אין הודעות שמורות. בחלונית ההודעה יש כפתור "שמור אצלי"</p>';
   $('sent').innerHTML = sent.length ? sent.map(m => {
     const st = m.to_users.map(u => { const r = reads.find(x => x.msg_id === m.id && x.user_id === u); const n = esc(byId[u]?.name || '');
       return r ? `<span class="ok">${n} ✓ נקרא${r.done ? '' : ' (עוד לא ענה)'}</span>` : `<span>${n} · טרם נקרא</span>`; }).join('');
     return `<div class="mrow"><div class="xmh"><b>אל:</b><small style="margin-inline-start:0">${impWhen(m.created_at)}</small></div>
       ${m.photo_path && urls[m.photo_path] ? `<img class="mi" src="${urls[m.photo_path]}" alt="תמונה">` : ''}${m.body ? `<p>${esc(m.body)}</p>` : ''}${listUl(m, [], false)}
-      <div class="st">${st}</div><button class="mdel" type="button" data-del="${m.id}">מחיקה</button></div>`;
+      <div class="st">${st}</div><button class="mdel" type="button" data-del="${m.id}">מחק לכולם</button></div>`;
   }).join('') : '<p class="empty">עוד לא שלחתם הודעות</p>';
-  $('got').innerHTML = got.length ? got.map(m => row(m, urls, savedSet.has(m.id) ? '<small style="color:#166534;font-weight:700">✓ שמור</small>' : `<button class="xbtn" type="button" data-save="${m.id}">שמור אצלי</button>`, listUl(m, [], false))).join('') : '<p class="empty">אין הודעות שהתקבלו</p>';
+  $('got').innerHTML = got.length ? got.map(m => row(m, urls, `<button class="xbtn" type="button" data-thread="${m.sender_id}">פתח שיחה</button><button class="xbtn" type="button" data-hide="${m.id}" style="color:#B91C1C">מחק</button>` + (savedSet.has(m.id) ? '<small style="color:#166534;font-weight:700">✓ שמור</small>' : `<button class="xbtn" type="button" data-save="${m.id}">שמור אצלי</button>`), listUl(m, [], false))).join('') : '<p class="empty">אין הודעות שהתקבלו</p>';
 }
 const setSaved = async (id, v) => { await supabase.from('important_reads').upsert({ msg_id: id, user_id: me.id, saved: v }, { onConflict: 'msg_id,user_id' }); load(); };
 $('saved').addEventListener('change', e => {
@@ -194,10 +195,13 @@ $('saved').addEventListener('change', e => {
 document.querySelector('main').addEventListener('click', async e => {
   const im = e.target.closest('img.mi');
   if (im) { const z = document.createElement('div'); z.className = 'zoomov'; z.innerHTML = `<img src="${im.src}" alt="">`; z.onclick = () => z.remove(); document.body.append(z); return; }
+  const hd = e.target.closest('[data-hide]');
+  if (hd) { if (confirm('למחוק את ההודעה אצלך? אצל הצד השני היא תישאר.')) { const r = await supabase.rpc('hide_important', { ids: [hd.dataset.hide] }); if (r.error) showToast('המחיקה נכשלה', true); else { showToast('ההודעה נמחקה'); load(); } } return; }
+  const th = e.target.closest('[data-thread]'); if (th) { if (window.__imp) window.__imp.openThread(th.dataset.thread); else showToast('רגע, האפליקציה עדיין נטענת', true); return; }
   const sv = e.target.closest('[data-save]'); if (sv) { setSaved(sv.dataset.save, true); return; }
   const us = e.target.closest('[data-unsave]'); if (us) { setSaved(us.dataset.unsave, false); return; }
   const d = e.target.closest('[data-del]');
-  if (d && confirm('למחוק את ההודעה אצל כולם?')) { await supabase.from('important_msgs').delete().eq('id', d.dataset.del); load(); }
+  if (d && confirm('למחוק את ההודעה אצל כולם, גם אצל מי שקיבל אותה?')) { await supabase.from('important_msgs').delete().eq('id', d.dataset.del); load(); }
 });
 if (isAdmin) {
   $('pvBox').hidden = false;

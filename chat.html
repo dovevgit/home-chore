@@ -27,7 +27,7 @@
 </form>
 <div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
 <script type="module">
-import { initPage, supabase, esc, icon, avatar, ilDate, ilTime, addDays, flashToast, showToast, shrinkImage, signedUrls } from './js/common.js';
+import { initPage, supabase, esc, icon, avatar, ilDate, ilTime, addDays, flashToast, showToast, shrinkImage, signedUrls, playChime } from './js/common.js';
 const { session, profiles } = await initPage({ title: 'הודעות משפחתיות', back: 'index.html' });
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 const me = session.user.id;
@@ -68,6 +68,7 @@ async function load(scroll) {
   const rows = (data || []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   await signFor(rows);
   const changed = rows.length !== list.length || (rows.at(-1)?.id !== list.at(-1)?.id);
+  { const nw = rows.at(-1); if (list.length && nw && nw.id !== list.at(-1)?.id && nw.user_id !== me && nw.type !== 'system') playChime(); }
   list = rows;
   if (changed || scroll) render(scroll);
   try { localStorage.setItem('chatSeen', new Date().toISOString()); } catch (_) {}
