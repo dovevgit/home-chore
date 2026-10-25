@@ -101,6 +101,13 @@ async function showList() {
     <label for="reqPts" style="margin-top:0">כמה נקודות מקבל מי שמבצע בקשה</label>
     <div style="display:flex;gap:10px;align-items:center"><input type="number" id="reqPts" min="0" max="100" style="flex:1" dir="ltr"><button class="btn" id="reqSave" type="button" style="margin-top:0;width:auto;padding:0 24px">שמירה</button></div>
     <p class="note">הסכום נקבע בזמן שליחת הבקשה, ושינוי כאן משפיע רק על בקשות חדשות.</p>
+    <div class="sec-title" style="margin-top:22px">נקודות בונוס</div>
+    <select class="sel" id="bUser" style="width:100%"><option value="">למי לתת?</option>${users.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>
+    <input type="number" id="bPts" min="1" max="1000" inputmode="numeric" dir="ltr" placeholder="כמה נקודות" style="margin-top:8px">
+    <input id="bReason" maxlength="200" placeholder="הסיבה, למשל: עזרת מעבר למה שנדרש" style="margin-top:8px">
+    <button class="btn" id="bSend" type="button" style="margin-top:8px">שליחת בונוס</button>
+    <p class="note">המקבל/ת רואה חלונית עם הסיבה, ומקבל/ת התראה לטלפון. הנקודות נכנסות לנקודות השבועיות ולחנות.</p>
+    <div id="bList"></div>
     <div class="sec-title" style="margin-top:22px">היסטוריית דיווחים</div>
     <button class="btn secondary" id="wipeRep" type="button" style="width:100%;margin-top:0;color:#B91C1C;border-color:#EF4444">מחיקת כל הדיווחים וההיסטוריה</button>
     <p class="note">מוחק את כל דיווחי המשימות (כולל תמונות הדיווח) ומאפס את הנקודות. אי אפשר לשחזר. מתאים לניקוי אחרי בדיקות. אפשר גם למחוק דיווח בודד: במסך ההיסטוריה לוחצים על דיווח.</p>`;
@@ -130,6 +137,29 @@ async function showList() {
     if (Number.isNaN(v) || v < 0) return toast('צריך להזין מספר נקודות', true);
     const { error } = await supabase.from('app_settings').upsert({ key: 'request_points', value: String(v) });
     toast(error ? 'השמירה נכשלה: ' + error.message : 'נשמר', !!error);
+  };
+  const loadBonus = async () => {
+    const { data } = await supabase.from('bonus_points').select('id,user_id,points,reason,created_at').order('created_at', { ascending: false }).limit(5);
+    document.getElementById('bList').innerHTML = (data || []).length ? '<div class="note" style="text-align:start;margin-top:10px"><b>בונוסים אחרונים</b></div>' + data.map(b => `<div class="row-item" style="align-items:center">${avatar(byId[b.user_id], 36)}<div style="flex:1;min-width:0"><b>${esc(byId[b.user_id]?.name || '')}</b> <span dir="ltr">+${b.points}</span><div class="note" style="text-align:start;margin:0">${esc(b.reason)}</div></div><button class="btn secondary bdel" data-id="${b.id}" type="button" style="width:auto;margin:0;padding:0 14px">מחיקה</button></div>`).join('') : '';
+    document.querySelectorAll('.bdel').forEach(x => x.onclick = async () => {
+      if (!confirm('למחוק את הבונוס? הנקודות יורדו.')) return;
+      const { error } = await supabase.from('bonus_points').delete().eq('id', x.dataset.id);
+      toast(error ? 'המחיקה נכשלה: ' + error.message : 'נמחק', !!error); loadBonus();
+    });
+  };
+  loadBonus();
+  document.getElementById('bSend').onclick = async (e) => {
+    const uid = document.getElementById('bUser').value, pts = parseInt(document.getElementById('bPts').value), reason = document.getElementById('bReason').value.trim();
+    if (!uid) return toast('צריך לבחור למי לתת', true);
+    if (!(pts >= 1 && pts <= 1000)) return toast('צריך מספר נקודות בין 1 ל-1000', true);
+    if (!reason) return toast('צריך לכתוב סיבה', true);
+    e.target.disabled = true;
+    const { error } = await supabase.from('bonus_points').insert({ user_id: uid, points: pts, reason, given_by: session.user.id });
+    e.target.disabled = false;
+    if (error) return toast('השליחה נכשלה: ' + error.message, true);
+    toast(`נשלח: ${byId[uid]?.name || ''} קיבל/ה ${pts} נקודות`);
+    document.getElementById('bPts').value = ''; document.getElementById('bReason').value = ''; document.getElementById('bUser').value = '';
+    loadBonus();
   };
   document.getElementById('wipeRep').onclick = async (e) => {
     if (!confirm('למחוק את כל הדיווחים וההיסטוריה? הנקודות יתאפסו (כולל יתרות החנות) ואי אפשר לשחזר.')) return;
