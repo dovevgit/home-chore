@@ -40,6 +40,11 @@
       <div><b>צוללות</b><span>משחק לזוג, להטביע את הצי של היריב</span></div>
       <div class="live" id="tBsLive">תורך!</div>
     </a>
+    <a class="gtile" href="poker.html" id="tPk">
+      <div class="gi" style="background:linear-gradient(135deg,#17674d,#0a3326);color:#e8bd4f">&#9824;</div>
+      <div><b>פוקר</b><span>טקסס הולדם לעד 6 שחקנים</span></div>
+      <div class="live" id="tPkLive">שולחן פתוח!</div>
+    </a>
   </div>
 </main>
 <script type="module">
@@ -57,6 +62,10 @@ try {
   const { data } = await supabase.from('bs_games').select('*').in('status', ['invite', 'setup', 'play']);
   const my = (data || []).some(g => { const a = g.a_id === uid; return (g.status === 'invite' && g.b_id === uid) || (g.status === 'setup' && !(a ? g.ready_a : g.ready_b)) || (g.status === 'play' && g.turn === (a ? 'a' : 'b')); });
   if (my) document.getElementById('tBsLive').style.display = 'block';
+} catch (_) {}
+try {
+  const { data } = await supabase.rpc('poker_list');
+  if (data && (data.mine || (data.tables || []).some(t => t.status === 'lobby' && t.n < 6))) { const l = document.getElementById('tPkLive'); l.style.display = 'block'; if (data.mine) l.textContent = 'אתה בשולחן'; }
 } catch (_) {}
 </script>
 </body>
