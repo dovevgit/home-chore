@@ -223,7 +223,10 @@ import('./js/push.js').then(async P => {
   document.getElementById('pushLater').onclick = () => { try { localStorage.setItem('pushBarOff', String(Date.now() + 3 * 864e5)); } catch (_) {} bar.innerHTML = ''; };
   document.getElementById('pushOn').onclick = async () => {
     try { await P.enablePush(me.id); bar.innerHTML = ''; showToast('ההתראות הופעלו במכשיר הזה'); }
-    catch (e) { showToast(e.message === 'denied' ? 'לא אושרו התראות' : 'ההפעלה נכשלה, נסו שוב', true); }
+    catch (e) {
+      showToast(e.message === 'denied' ? 'לא אושרו התראות' : 'ההפעלה נכשלה, נסו שוב', true);
+      if (e.detail) { let d = document.getElementById('pushErr'); if (!d) { d = document.createElement('div'); d.id = 'pushErr'; d.style.cssText = 'margin-top:8px;font-size:13px;color:#991B1B;direction:rtl;word-break:break-word'; document.getElementById('pushOn').closest('.card').append(d); } d.textContent = e.detail; }
+    }
   };
 }).catch(() => {});
 document.getElementById('reqIcon').innerHTML = icon('hand-heart', 28);
