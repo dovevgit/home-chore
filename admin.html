@@ -101,6 +101,7 @@ async function showList() {
     <label for="reqPts" style="margin-top:0">כמה נקודות מקבל מי שמבצע בקשה</label>
     <div style="display:flex;gap:10px;align-items:center"><input type="number" id="reqPts" min="0" max="100" style="flex:1" dir="ltr"><button class="btn" id="reqSave" type="button" style="margin-top:0;width:auto;padding:0 24px">שמירה</button></div>
     <p class="note">הסכום נקבע בזמן שליחת הבקשה, ושינוי כאן משפיע רק על בקשות חדשות.</p>
+    <div id="bCard" style="display:none">
     <div class="sec-title" style="margin-top:22px">נקודות בונוס</div>
     <select class="sel" id="bUser" style="width:100%"><option value="">למי לתת?</option>${users.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>
     <input type="number" id="bPts" min="1" max="1000" inputmode="numeric" dir="ltr" placeholder="כמה נקודות" style="margin-top:8px">
@@ -108,6 +109,7 @@ async function showList() {
     <button class="btn" id="bSend" type="button" style="margin-top:8px">שליחת בונוס</button>
     <p class="note">המקבל/ת רואה חלונית עם הסיבה, ומקבל/ת התראה לטלפון. הנקודות נכנסות לנקודות השבועיות ולחנות.</p>
     <div id="bList"></div>
+    </div>
     <div class="sec-title" style="margin-top:22px">היסטוריית דיווחים</div>
     <button class="btn secondary" id="wipeRep" type="button" style="width:100%;margin-top:0;color:#B91C1C;border-color:#EF4444">מחיקת כל הדיווחים וההיסטוריה</button>
     <p class="note">מוחק את כל דיווחי המשימות (כולל תמונות הדיווח) ומאפס את הנקודות. אי אפשר לשחזר. מתאים לניקוי אחרי בדיקות. אפשר גם למחוק דיווח בודד: במסך ההיסטוריה לוחצים על דיווח.</p>`;
@@ -147,7 +149,7 @@ async function showList() {
       toast(error ? 'המחיקה נכשלה: ' + error.message : 'נמחק', !!error); loadBonus();
     });
   };
-  loadBonus();
+  supabase.rpc('is_bonus_giver').then(({ data }) => { if (data === true) { document.getElementById('bCard').style.display = ''; loadBonus(); } });
   document.getElementById('bSend').onclick = async (e) => {
     const uid = document.getElementById('bUser').value, pts = parseInt(document.getElementById('bPts').value), reason = document.getElementById('bReason').value.trim();
     if (!uid) return toast('צריך לבחור למי לתת', true);
