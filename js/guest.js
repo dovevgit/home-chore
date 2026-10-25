@@ -3,13 +3,13 @@ import { supabase, esc, showToast } from './common.js';
 
 export const guestToken = () => new URLSearchParams(location.search).get('t');
 
-const KIND_PAGE = { checkers: 'checkers.html', game: 'game.html', bs: 'battleship.html', poker: 'poker.html' };
-const KIND_NAME = { checkers: 'דמקה', game: 'חי צומח דומם', bs: 'צוללות', poker: 'פוקר' };
+const KIND_PAGE = { checkers: 'checkers.html', game: 'game.html', bs: 'battleship.html', poker: 'poker.html', bg: 'backgammon.html' };
+const KIND_NAME = { checkers: 'דמקה', game: 'חי צומח דומם', bs: 'צוללות', poker: 'פוקר', bg: 'שש בש' };
 
 const callRpc = (token, fn, args) => supabase.rpc('guest_call', { p_token: token, p_fn: fn, p_args: args || {} });
 
 function box(html) {
-  const host = document.getElementById('gm') || document.getElementById('ck') || document.getElementById('bs') || document.getElementById('pk') || document.body;
+  const host = document.getElementById('gm') || document.getElementById('ck') || document.getElementById('bs') || document.getElementById('bgm') || document.getElementById('pk') || document.body;
   host.innerHTML = `<div style="max-width:420px;margin:30px auto 0;background:#fff;border-radius:22px;padding:22px;text-align:center;box-shadow:0 4px 18px rgba(13,110,253,.18);border:3px solid #E3ECFF;color:#2B2A4C">${html}</div>`;
   return host;
 }
