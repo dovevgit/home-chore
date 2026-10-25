@@ -7,12 +7,12 @@
 *{box-sizing:border-box}
 html{color-scheme:only light}
 html,body{margin:0;min-height:100%}
-body{font-family:'Assistant',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:18px;line-height:1.4;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+body{font-family:'Assistant',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:18px;line-height:1.4;padding-top:76px;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 .hidden{display:none!important}
 a{color:inherit}
 
 /* ===== כותרת ===== */
-header.bar{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,var(--blue-dark),var(--blue));color:#fff;height:76px;display:flex;align-items:center;justify-content:space-between;padding:0 14px}
+header.bar{position:fixed;top:0;left:0;right:0;z-index:20;background:linear-gradient(180deg,var(--blue-dark),var(--blue));color:#fff;height:76px;display:flex;align-items:center;justify-content:space-between;padding:0 14px}
 header.bar h1{margin:0;font-size:24px;font-weight:800;position:absolute;inset-inline:64px;text-align:center;pointer-events:none}
 .iconbtn{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.2);color:#fff;border:0;cursor:pointer;text-decoration:none;z-index:1}
 .iconbtn.ghost{background:transparent;cursor:default}
