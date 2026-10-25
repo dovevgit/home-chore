@@ -96,9 +96,12 @@ body{background:var(--bjground) fixed;background-color:var(--bjground)}
 @media (prefers-reduced-motion:reduce){.bjcard.new{animation:none}}
 /* בלי הפס הכחול העליון במשחקים, כדי שלא יפריע */
 header.bar{display:none}body{padding-top:10px}
+.gback{display:block;max-width:460px;margin:0 auto;padding:4px 14px 8px;font:inherit;font-size:15px;font-weight:800;color:#8a8aa0;text-decoration:none}
 </style>
 </head>
 <body>
+<a class="gback" id="gback" href="games.html">‹ חזרה למשחקים</a>
+<script>if(new URLSearchParams(location.search).get("t")||new URLSearchParams(location.search).get("g"))document.getElementById("gback").style.display=new URLSearchParams(location.search).get("t")?"none":"block"</script>
 <main id="bjm"><p class="bjempty">טוען...</p></main>
 <script type="module" src="js/bjpage.js"></script>
 </body>
