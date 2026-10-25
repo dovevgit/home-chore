@@ -150,6 +150,7 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
       <a href="history.html">${icon('chart-column')} היסטוריה ודיווחים</a>
       <a href="shop.html">${icon('gift')} חנות</a>
       <a href="requests.html">${icon('hand-heart')} בקשות מיוחדות</a>
+      <a href="important.html" class="imp-link">${icon('bell')} הודעה חשובה</a>
       <a href="chat.html">${icon('message-circle')} הודעות משפחתיות</a>
       <a href="fridge.html">${icon('sticky-note')} פתקים על המקרר</a>
       <a href="outing.html">${icon('house')} אני לא בבית</a>
@@ -176,6 +177,7 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
   }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   showPendingToast();
+  if (me) import('./important.js').then(m => m.startImportant(me, profiles || [])).catch(() => {});
   return { session, me, profiles: profiles || [], isAdmin };
 }
 
