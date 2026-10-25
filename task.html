@@ -19,7 +19,7 @@
 <main id="main"><p class="empty">טוען...</p></main>
 <script type="module">
 import { initPage, supabase, esc, icon, iconBox, ROOMS, tintOf, avatar, ilTime, ilDate, reportCounts, loadReports, pointsFor, deriveStatus, nextSlot, STATUS, signedUrls } from './js/common.js';
-const { profiles } = await initPage({ title: 'פרטי משימה', back: 'tasks.html' });
+const { profiles, me } = await initPage({ title: 'פרטי משימה', back: 'tasks.html' });
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 const id = new URLSearchParams(location.search).get('id');
 const main = document.getElementById('main');
@@ -53,6 +53,7 @@ else {
     <div class="card flat dhead" style="background:${tintOf(t)}">${iconBox(t, 56)}
       <div style="flex:1"><div class="dtitle">${esc(t.title)}${t.times_required > 1 || c > t.times_required ? ` <span dir="ltr">(${c}/${t.times_required})</span>` : ''}</div></div></div>
     ${t.room && ROOMS[t.room] ? `<img src="rooms/${t.room}-full.jpg" alt="${esc(ROOMS[t.room])}" style="width:100%;max-height:300px;object-fit:cover;object-position:center 88%;border-radius:18px;margin:0 0 10px;display:block">` : ''}
+    ${(() => { const o = slot?.assignee_id && slot.assignee_id !== me?.id && status !== 'done' ? byId[slot.assignee_id] : null; return o ? `<div class="card flat" style="border:3px solid #FF8A00;background:#FFF4E5;display:flex;align-items:center;gap:12px">${avatar(o, 52)}<div><b style="color:#9A3412;font-size:18px">המשימה רשומה על ${esc(o.name)}</b><div style="margin-top:2px">אבל אפשר לעשות אותה ולקבל את הנקודות. הדיווח יירשם על שמך.</div></div></div>` : ''; })()}
     <div style="margin:-4px 2px 10px"><span class="chip ${S.cls}">${icon(S.icon === 'clock' ? 'hourglass' : S.icon, 13)} ${S.label}</span></div>
     <div class="card flat" style="padding:4px 14px">
       <div class="kv"><span>${icon('user', 18)} אחראי/ת</span><span>${slot ? `${esc(byId[slot.assignee_id]?.name || '')} ${avatar(byId[slot.assignee_id], 28)}` : '—'}</span></div>
