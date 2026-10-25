@@ -34,6 +34,10 @@ const CSS = `
 .toast{z-index:700!important}
 .impzoom{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:10px}
 .impzoom img{max-width:100%;max-height:100%;border-radius:12px}
+.implist{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.impitem{display:flex;align-items:center;gap:12px;background:#FFF7ED;border:2px solid #FFD2A1;border-radius:14px;padding:10px 12px;font-size:19px;cursor:pointer}
+.impitem input{width:24px;height:24px;accent-color:#F97316;flex:none}
+.impitem input:checked+span{text-decoration:line-through;color:#9CA3AF}
 .impnote{font-size:13px;color:#9A3412;text-align:center;margin:6px 0 10px}
 @keyframes imppop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes impfade{from{opacity:0}to{opacity:1}}
@@ -57,7 +61,8 @@ export function startImportant(me, profiles) {
     (preview.senders || []).forEach((sid, i) => {
       const at = new Date(Date.now() - 60000 * (i + 1)).toISOString();
       pvUnread.push({ id: 'pv-' + sid, sender_id: sid, created_at: at });
-      pvMsgs.push({ id: 'pv-' + sid, sender_id: sid, body: texts[i % texts.length], photo_path: null, parent_id: null, created_at: at });
+      pvMsgs.push(i === 1 ? { id: 'pv-' + sid, sender_id: sid, body: 'רשימת קניות לסופר', kind: 'list', items: ['חלב', 'לחם', 'ביצים', 'עגבניות'], photo_path: null, parent_id: null, created_at: at }
+        : { id: 'pv-' + sid, sender_id: sid, body: texts[0], photo_path: null, parent_id: null, created_at: at });
     });
   }
   let ov = null, view = 'list', curSender = null, shownIds = '', busy = false, photoBlob = null, photoUrl = null, unread = [];
@@ -94,14 +99,21 @@ export function startImportant(me, profiles) {
   async function openConv(sid, keepText) {
     const mine = unread.filter(u => u.sender_id === sid); if (!mine.length) { view = 'list'; renderList(); return; }
     const ids = mine.map(u => u.id);
-    const { data: msgs, error } = preview ? { data: pvMsgs.filter(m => ids.includes(m.id)), error: null } : await supabase.from('important_msgs').select('id,sender_id,body,photo_path,parent_id,created_at').in('id', ids).order('created_at');
+    const { data: msgs, error } = preview ? { data: pvMsgs.filter(m => ids.includes(m.id)), error: null } : await supabase.from('important_msgs').select('id,sender_id,body,photo_path,parent_id,kind,items,created_at').in('id', ids).order('created_at');
     if (error || !msgs) { showToast('לא הצלחנו לטעון את ההודעה', true); return; }
     msgs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     const pids = [...new Set(msgs.map(m => m.parent_id).filter(Boolean))];
     const parents = pids.length && !preview ? ((await supabase.from('important_msgs').select('id,body,photo_path').in('id', pids)).data || []) : [];
     const pById = Object.fromEntries(parents.map(p => [p.id, p]));
     const urls = await signedUrls(msgs.map(m => m.photo_path));
-    if (!preview) supabase.from('important_reads').upsert(ids.map(id => ({ msg_id: id, user_id: me.id, done: false })), { onConflict: 'msg_id,user_id', ignoreDuplicates: true }).then(() => {}, () => {});
+    const mineReads = preview ? [] : ((await supabase.from('important_reads').select('msg_id,checked').in('msg_id', ids).eq('user_id', me.id)).data || []);
+    const checkedOf = id => (mineReads.find(r => r.msg_id === id)?.checked) || [];
+    const listHtml = m => m.kind === 'list' && Array.isArray(m.items) ? `<div class="implist" data-m="${m.id}">${m.items.map((t, i) => `<label class="impitem"><input type="checkbox" data-i="${i}" ${checkedOf(m.id).includes(i) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>` : '';
+    if (!preview) {
+      const listIds = msgs.filter(m => m.kind === 'list').map(m => m.id), otherIds = ids.filter(id => !listIds.includes(id));
+      if (otherIds.length) supabase.from('important_reads').upsert(otherIds.map(id => ({ msg_id: id, user_id: me.id, done: false })), { onConflict: 'msg_id,user_id', ignoreDuplicates: true }).then(() => {}, () => {});
+      if (listIds.length) supabase.from('important_reads').upsert(listIds.map(id => ({ msg_id: id, user_id: me.id, done: false, saved: true })), { onConflict: 'msg_id,user_id' }).then(() => {}, () => {});   // רשימות נשמרות אוטומטית
+    }
     const keep = keepText ? ov?.querySelector('#impText')?.value || '' : '';
     view = 'conv'; curSender = sid; shownIds = ids.join(',');
     const p = byId[sid];
@@ -111,7 +123,7 @@ export function startImportant(me, profiles) {
         return `<div class="impmsg"><time>${impWhen(m.created_at)}</time>
           ${q ? `<div class="impquote">בתגובה להודעה שלך: ${esc((q.body || '📷 תמונה').slice(0, 80))}</div>` : ''}
           ${m.photo_path && urls[m.photo_path] ? `<img class="impimg" src="${urls[m.photo_path]}" alt="תמונה">` : ''}
-          ${m.body ? `<p>${esc(m.body)}</p>` : ''}</div>`;
+          ${m.body ? `<p>${esc(m.body)}</p>` : ''}${listHtml(m)}</div>`;
       }).join('')}
       <div class="impreply">
         <textarea id="impText" maxlength="1000" placeholder="כתבו תשובה ל${esc(p?.name || '')}...">${esc(keep)}</textarea>
@@ -124,22 +136,28 @@ export function startImportant(me, profiles) {
         <input type="file" id="impFileG" accept="image/*" hidden>
         <button class="impbtn" id="impSend" type="button">שליחת תשובה</button>
         <p class="impnote">התשובה נשלחת רק ל${esc(p?.name || '')}</p>
+        <button class="impbtn alt" id="impSave" type="button" style="margin-bottom:8px">שמור אצלי</button>
         <button class="impbtn alt" id="impDone" type="button">קראתי, בלי תשובה</button>
       </div>`, true);
     const showPv = () => { $('impPv').innerHTML = photoUrl ? `<span class="imppv"><img src="${photoUrl}" alt=""><button type="button" id="impRm" aria-label="הסרה">×</button></span>` : ''; $('impRm')?.addEventListener('click', () => { photoBlob = null; photoUrl = null; showPv(); }); };
     const $ = id => ov.querySelector('#' + id);
     showPv();
     body.querySelectorAll('.impimg').forEach(im => im.onclick = () => { const z = document.createElement('div'); z.className = 'impzoom'; z.innerHTML = `<img src="${im.src}" alt="">`; z.onclick = () => z.remove(); document.body.append(z); });
+    body.querySelectorAll('.implist').forEach(box => box.addEventListener('change', () => {
+      const arr = [...box.querySelectorAll('input')].map((x, i) => x.checked ? i : -1).filter(i => i >= 0);
+      if (!preview) supabase.from('important_reads').upsert({ msg_id: box.dataset.m, user_id: me.id, checked: arr }, { onConflict: 'msg_id,user_id' }).then(() => {}, () => {});
+    }));
     $('impCam').onclick = () => $('impFileC').click(); $('impGal').onclick = () => $('impFileG').click();
     for (const id of ['impFileC', 'impFileG']) $(id).onchange = async e => {
       const f = e.target.files[0]; e.target.value = ''; if (!f) return;
       try { photoBlob = await shrinkImage(f); photoUrl = URL.createObjectURL(photoBlob); showPv(); } catch (_) { showToast('התמונה לא נטענה', true); }
     };
-    const finish = async (reply) => {
+    const finish = async (mode) => {
+      const reply = mode === 'reply';
       if (busy) return;
       const txt = $('impText').value.trim();
       if (reply && !txt && !photoBlob) { showToast('כתבו תשובה או צרפו תמונה', true); return; }
-      busy = true; $('impSend').disabled = true; $('impDone').disabled = true;
+      busy = true; $('impSend').disabled = true; $('impDone').disabled = true; $('impSave').disabled = true;
       try {
         if (preview) {
           pvUnread = pvUnread.filter(u => u.sender_id !== sid);
@@ -157,16 +175,17 @@ export function startImportant(me, profiles) {
           const ins = await supabase.from('important_msgs').insert({ to_users: [sid], body: txt || null, photo_path: path, parent_id: ids[ids.length - 1] });
           if (ins.error) throw new Error('send');
         }
-        const dn = await supabase.from('important_reads').upsert(ids.map(id => ({ msg_id: id, user_id: me.id, done: true })), { onConflict: 'msg_id,user_id' });
+        const dn = await supabase.from('important_reads').upsert(ids.map(id => ({ msg_id: id, user_id: me.id, done: true, ...(mode === 'save' ? { saved: true } : {}) })), { onConflict: 'msg_id,user_id' });
         if (dn.error) throw new Error('done');
         photoBlob = null; photoUrl = null;
-        showToast(reply ? 'התשובה נשלחה' : 'סומן כנקרא');
+        showToast(reply ? 'התשובה נשלחה' : mode === 'save' ? 'נשמר באזור "שמורות" בעמוד הודעה חשובה' : 'סומן כנקרא');
         busy = false; view = 'list'; curSender = null; shownIds = '';
         await check(true);
-      } catch (_) { busy = false; showToast('הפעולה נכשלה, נסו שוב', true); const s = ov?.querySelector('#impSend'); if (s) { s.disabled = false; ov.querySelector('#impDone').disabled = false; } }
+      } catch (_) { busy = false; showToast('הפעולה נכשלה, נסו שוב', true); const s = ov?.querySelector('#impSend'); if (s) { s.disabled = false; ov.querySelector('#impDone').disabled = false; ov.querySelector('#impSave').disabled = false; } }
     };
-    $('impSend').onclick = () => finish(true);
-    $('impDone').onclick = () => finish(false);
+    $('impSend').onclick = () => finish('reply');
+    $('impDone').onclick = () => finish('done');
+    $('impSave').onclick = () => finish('save');
   }
 
   async function check(force) {
