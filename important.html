@@ -38,19 +38,39 @@
 .st span{font-size:14px;font-weight:700;border-radius:999px;padding:3px 10px;background:#FFE7CC;color:#9A3412}
 .st span.ok{background:#DCFCE7;color:#166534}
 .mdel{border:0;background:none;color:#B91C1C;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;padding:4px 0}
+.kinds{display:flex;gap:8px;margin:6px 0 10px}
+.kbtn{flex:1;border:3px solid #FFD2A1;background:#fff;color:#7C2D12;border-radius:14px;padding:10px;font-weight:800;font-size:16px;font-family:inherit;cursor:pointer}
+.kbtn.on{border-color:#F97316;background:#FFE7CC}
+.irow{display:flex;gap:8px;margin-bottom:8px}
+.irow input{flex:1;min-width:0;border:3px solid #FFC078;border-radius:14px;padding:10px;font-size:18px;font-family:inherit;background:#fff}
+.irow input:focus{outline:none;border-color:#FF8A00}
+.irow button{flex:none;width:44px;border:0;border-radius:12px;background:#FFE0E0;color:#B91C1C;font-size:22px;cursor:pointer}
+.addrow{border:2px dashed #FF8A00;background:#fff;color:#C2410C;border-radius:14px;padding:10px;font-weight:800;font-size:16px;font-family:inherit;width:100%;cursor:pointer;margin-bottom:8px}
+.xlist{margin:4px 0 8px;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.xlist label{display:flex;align-items:center;gap:10px;margin:0;line-height:1.25;min-height:0;font-weight:600;background:#FFF7ED;border:2px solid #FFD2A1;border-radius:12px;padding:8px 10px;font-size:17px}
+.xlist input{width:22px;height:22px;accent-color:#F97316;flex:none}
+.xlist input:checked+span{text-decoration:line-through;color:#9CA3AF}
+.xbtn{border:0;background:none;color:#C2410C;font-family:inherit;font-weight:800;font-size:15px;cursor:pointer;padding:4px 0;margin-inline-end:14px}
 .zoomov{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:10px}
 .zoomov img{max-width:100%;max-height:100%;border-radius:12px}
 </style>
 </head>
 <body>
 <main>
+  <div class="sec-title" style="margin-top:0">שמורות</div>
+  <div id="saved"><p class="empty">אין הודעות שמורות</p></div>
   <div class="xbox">
     <h2>הודעה חשובה</h2>
     <p class="hint">ההודעה תקפוץ אצל מי שבחרתם בחלונית גדולה, עד שיענו לה.</p>
     <div class="sec-title" style="margin:6px 0 0">למי לשלוח?</div>
     <div class="xwho" id="who"></div>
+    <div class="kinds"><button type="button" class="kbtn on" id="kMsg">הודעה</button><button type="button" class="kbtn" id="kList">רשימת קניות</button></div>
     <textarea id="text" maxlength="1000" placeholder="כתבו את ההודעה..."></textarea>
-    <div class="itools">
+    <div id="listBox" hidden>
+      <div id="rows"></div>
+      <button type="button" class="addrow" id="addRow">+ הוסף פריט</button>
+    </div>
+    <div class="itools" id="tools">
       <button class="itool" id="cam" type="button"></button>
       <button class="itool" id="gal" type="button"></button>
       <span id="pv"></span>
@@ -78,7 +98,7 @@ const { me, profiles, isAdmin } = await initPage({ active: 'important', title: '
 const $ = id => document.getElementById(id);
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 const others = profiles.filter(p => p.is_user !== false && p.id !== me?.id);
-let sel = new Set(), blob = null, blobUrl = null, busy = false;
+let sel = new Set(), blob = null, blobUrl = null, busy = false, kind = 'message';
 $('cam').innerHTML = icon('camera', 20) + ' צילום'; $('gal').innerHTML = icon('image', 20) + ' תמונה';
 supabase.rpc('purge_important').then(() => {}, () => {});
 
@@ -94,6 +114,16 @@ $('who').addEventListener('click', e => {
   drawWho();
 });
 const drawPv = () => { $('pv').innerHTML = blobUrl ? `<span class="ipv"><img src="${blobUrl}" alt=""><button type="button" id="rm" aria-label="הסרה">×</button></span>` : ''; $('rm')?.addEventListener('click', () => { blob = null; blobUrl = null; drawPv(); }); };
+const addRow = (v = '') => { const d = document.createElement('div'); d.className = 'irow'; d.innerHTML = `<input maxlength="80" placeholder="פריט" value="${esc(v)}"><button type="button" aria-label="הסרה">×</button>`; d.querySelector('button').onclick = () => { if ($('rows').children.length > 1) d.remove(); else d.querySelector('input').value = ''; }; $('rows').append(d); return d; };
+function setKind(k) {
+  kind = k; $('kMsg').classList.toggle('on', k === 'message'); $('kList').classList.toggle('on', k === 'list');
+  $('listBox').hidden = k !== 'list'; $('tools').hidden = k === 'list';
+  $('text').placeholder = k === 'list' ? 'כותרת (לא חובה), למשל: קניות לסופר' : 'כתבו את ההודעה...';
+  $('text').style.minHeight = k === 'list' ? '56px' : '';
+  if (k === 'list' && !$('rows').children.length) { addRow(); addRow(); addRow(); }
+}
+$('kMsg').onclick = () => setKind('message'); $('kList').onclick = () => setKind('list');
+$('addRow').onclick = () => addRow().querySelector('input').focus();
 $('cam').onclick = () => $('fc').click(); $('gal').onclick = () => $('fg').click();
 for (const id of ['fc', 'fg']) $(id).addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -103,7 +133,9 @@ $('send').onclick = async () => {
   if (busy) return;
   const txt = $('text').value.trim();
   if (!sel.size) { showToast('בחרו למי לשלוח', true); return; }
-  if (!txt && !blob) { showToast('כתבו הודעה או צרפו תמונה', true); return; }
+  const items = kind === 'list' ? [...$('rows').querySelectorAll('input')].map(x => x.value.trim()).filter(Boolean).slice(0, 60) : [];
+  if (kind === 'list' && !items.length) { showToast('הוסיפו לפחות פריט אחד', true); return; }
+  if (kind === 'message' && !txt && !blob) { showToast('כתבו הודעה או צרפו תמונה', true); return; }
   busy = true; $('send').disabled = true;
   try {
     let path = null;
@@ -112,40 +144,62 @@ $('send').onclick = async () => {
       const up = await supabase.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
       if (up.error) throw new Error('upload');
     }
-    const r = await supabase.from('important_msgs').insert({ to_users: [...sel], body: txt || null, photo_path: path });
+    const r = await supabase.from('important_msgs').insert(kind === 'list' ? { to_users: [...sel], body: txt || null, kind: 'list', items } : { to_users: [...sel], body: txt || null, photo_path: path });
     if (r.error) throw new Error('send');
-    $('text').value = ''; blob = null; blobUrl = null; sel = new Set(); drawPv(); drawWho();
+    $('text').value = ''; blob = null; blobUrl = null; sel = new Set(); $('rows').innerHTML = ''; drawPv(); drawWho(); setKind(kind);
     showToast('ההודעה נשלחה'); await load();
   } catch (_) { showToast('השליחה נכשלה, נסו שוב', true); }
   busy = false; $('send').disabled = false;
 };
 
-const row = (m, urls, extra) => {
+const listUl = (m, checked, boxes) => m.kind === 'list' && Array.isArray(m.items)
+  ? `<div class="xlist" data-m="${m.id}">${m.items.map((t, i) => boxes
+      ? `<label><input type="checkbox" data-i="${i}" ${checked.includes(i) ? 'checked' : ''}><span>${esc(t)}</span></label>`
+      : `<label><span>• ${esc(t)}</span></label>`).join('')}</div>` : '';
+const row = (m, urls, extra, listHtml = '') => {
   const p = byId[m.sender_id];
   return `<div class="mrow"><div class="xmh">${avatar(p, 34)}<b>${esc(p?.name || 'מישהו')}</b><small>${impWhen(m.created_at)}</small></div>
     ${m.photo_path && urls[m.photo_path] ? `<img class="mi" src="${urls[m.photo_path]}" alt="תמונה">` : ''}
-    ${m.body ? `<p>${esc(m.body)}</p>` : ''}${extra}</div>`;
+    ${m.body ? `<p>${esc(m.body)}</p>` : ''}${listHtml}${extra}</div>`;
 };
+const COLS = 'id,sender_id,to_users,body,photo_path,parent_id,kind,items,created_at';
 async function load() {
-  const { data, error } = await supabase.from('important_msgs').select('id,sender_id,to_users,body,photo_path,parent_id,created_at').order('created_at', { ascending: false }).limit(40);
+  const { data, error } = await supabase.from('important_msgs').select(COLS).order('created_at', { ascending: false }).limit(40);
   if (error) { $('sent').innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; $('got').innerHTML = ''; return; }
   const all = data || [];
+  const myReads = ((await supabase.from('important_reads').select('msg_id,checked,saved').eq('user_id', me.id)).data || []);
+  const savedReads = myReads.filter(r => r.saved);
+  const have = new Set(all.map(m => m.id));
+  const missing = savedReads.map(r => r.msg_id).filter(id => !have.has(id));
+  const extra = missing.length ? ((await supabase.from('important_msgs').select(COLS).in('id', missing)).data || []) : [];
+  const byMsg = Object.fromEntries([...all, ...extra].map(m => [m.id, m]));
   const sent = all.filter(m => m.sender_id === me.id).slice(0, 15);
   const got = all.filter(m => m.sender_id !== me.id).slice(0, 15);
-  const urls = await signedUrls(all.map(m => m.photo_path));
+  const savedSet = new Set(savedReads.map(r => r.msg_id));
+  const urls = await signedUrls([...all, ...extra].map(m => m.photo_path));
   const reads = sent.length ? ((await supabase.from('important_reads').select('msg_id,user_id,opened_at,done').in('msg_id', sent.map(m => m.id))).data || []) : [];
+  const savedMsgs = savedReads.map(r => byMsg[r.msg_id]).filter(Boolean).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  $('saved').innerHTML = savedMsgs.length ? savedMsgs.map(m => row(m, urls, `<button class="xbtn" type="button" data-unsave="${m.id}">הסר מהשמורות</button>`, listUl(m, savedReads.find(r => r.msg_id === m.id)?.checked || [], true))).join('') : '<p class="empty">אין הודעות שמורות. בחלונית ההודעה יש כפתור "שמור אצלי"</p>';
   $('sent').innerHTML = sent.length ? sent.map(m => {
     const st = m.to_users.map(u => { const r = reads.find(x => x.msg_id === m.id && x.user_id === u); const n = esc(byId[u]?.name || '');
       return r ? `<span class="ok">${n} ✓ נקרא${r.done ? '' : ' (עוד לא ענה)'}</span>` : `<span>${n} · טרם נקרא</span>`; }).join('');
     return `<div class="mrow"><div class="xmh"><b>אל:</b><small style="margin-inline-start:0">${impWhen(m.created_at)}</small></div>
-      ${m.photo_path && urls[m.photo_path] ? `<img class="mi" src="${urls[m.photo_path]}" alt="תמונה">` : ''}${m.body ? `<p>${esc(m.body)}</p>` : ''}
+      ${m.photo_path && urls[m.photo_path] ? `<img class="mi" src="${urls[m.photo_path]}" alt="תמונה">` : ''}${m.body ? `<p>${esc(m.body)}</p>` : ''}${listUl(m, [], false)}
       <div class="st">${st}</div><button class="mdel" type="button" data-del="${m.id}">מחיקה</button></div>`;
   }).join('') : '<p class="empty">עוד לא שלחתם הודעות</p>';
-  $('got').innerHTML = got.length ? got.map(m => row(m, urls, '')).join('') : '<p class="empty">אין הודעות שהתקבלו</p>';
+  $('got').innerHTML = got.length ? got.map(m => row(m, urls, savedSet.has(m.id) ? '<small style="color:#166534;font-weight:700">✓ שמור</small>' : `<button class="xbtn" type="button" data-save="${m.id}">שמור אצלי</button>`, listUl(m, [], false))).join('') : '<p class="empty">אין הודעות שהתקבלו</p>';
 }
+const setSaved = async (id, v) => { await supabase.from('important_reads').upsert({ msg_id: id, user_id: me.id, saved: v }, { onConflict: 'msg_id,user_id' }); load(); };
+$('saved').addEventListener('change', e => {
+  const box = e.target.closest('.xlist'); if (!box) return;
+  const arr = [...box.querySelectorAll('input')].map((x, i) => x.checked ? i : -1).filter(i => i >= 0);
+  supabase.from('important_reads').upsert({ msg_id: box.dataset.m, user_id: me.id, checked: arr }, { onConflict: 'msg_id,user_id' }).then(() => {}, () => {});
+});
 document.querySelector('main').addEventListener('click', async e => {
   const im = e.target.closest('img.mi');
   if (im) { const z = document.createElement('div'); z.className = 'zoomov'; z.innerHTML = `<img src="${im.src}" alt="">`; z.onclick = () => z.remove(); document.body.append(z); return; }
+  const sv = e.target.closest('[data-save]'); if (sv) { setSaved(sv.dataset.save, true); return; }
+  const us = e.target.closest('[data-unsave]'); if (us) { setSaved(us.dataset.unsave, false); return; }
   const d = e.target.closest('[data-del]');
   if (d && confirm('למחוק את ההודעה אצל כולם?')) { await supabase.from('important_msgs').delete().eq('id', d.dataset.del); load(); }
 });
