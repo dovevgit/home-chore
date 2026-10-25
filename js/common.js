@@ -171,10 +171,26 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
       <a href="fridge.html">${icon('sticky-note')} פתקים על המקרר</a>
       <a href="outing.html">${icon('house')} אני לא בבית</a>
       <a href="info.html">${icon('info')} מידע משפחתי</a>
+      <button id="pushBtn" type="button" style="display:none">${icon('bell')} <span>התראות</span></button>
       <button id="logout" type="button">${icon('log-out')} התנתקות</button></nav>`;
     document.body.append(drawer);
     document.getElementById('menuBtn')?.addEventListener('click', () => drawer.classList.remove('hidden'));
     drawer.querySelector('.drawer-bg').addEventListener('click', () => drawer.classList.add('hidden'));
+    import('./push.js').then(async P => {
+      const b = drawer.querySelector('#pushBtn'), lab = b.querySelector('span');
+      const draw = async () => {
+        const st = await P.pushState();
+        b.style.display = '';
+        lab.textContent = st === 'on' ? 'התראות פעילות ✓' : st === 'denied' ? 'התראות חסומות (בהגדרות הטלפון)' : st === 'unsupported' ? (P.isIOS() && !P.isStandalone() ? 'התראות: פתחו מהאייקון במסך הבית' : 'התראות לא נתמכות כאן') : 'הפעל התראות';
+        b.dataset.st = st;
+      };
+      b.addEventListener('click', async () => {
+        if (b.dataset.st !== 'off') return;
+        try { await P.enablePush(session.user.id); showToast('ההתראות הופעלו במכשיר הזה'); } catch (e) { showToast(e.message === 'denied' ? 'לא אושרו התראות' : 'ההפעלה נכשלה, נסו שוב', true); }
+        draw();
+      });
+      draw();
+    }).catch(() => {});
     drawer.querySelector('#logout').addEventListener('click', async () => { await supabase.auth.signOut(); location.replace('login.html'); });
 
   }
