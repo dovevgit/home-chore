@@ -104,6 +104,21 @@ export function avatar(p, size = 36) {
   return `<span class="avatar" title="${esc(p.name)}" style="width:${size}px;height:${size}px;border-color:${border};font-size:${Math.round(size * 0.46)}px">${inner}</span>`;
 }
 
+/* כתובות חתומות יציבות: נשמרות במכשיר עד 6 ימים, כך שהדפדפן לא מוריד שוב ושוב את אותה תמונה */
+export async function signedUrls(paths) {
+  const out = {}; const now = Date.now(); let cache = {};
+  try { cache = JSON.parse(localStorage.getItem('sgnCache') || '{}'); } catch (_) {}
+  const need = [];
+  [...new Set((paths || []).filter(Boolean))].forEach(p => { const c = cache[p]; if (c && c[1] > now) out[p] = c[0]; else need.push(p); });
+  if (need.length) {
+    const { data } = await supabase.storage.from('photos').createSignedUrls(need, 604800);
+    (data || []).forEach(sg => { if (sg.path && sg.signedUrl) { out[sg.path] = sg.signedUrl; cache[sg.path] = [sg.signedUrl, now + 6 * 864e5]; } });
+    Object.keys(cache).forEach(k => { if (cache[k][1] < now) delete cache[k]; });
+    try { localStorage.setItem('sgnCache', JSON.stringify(cache)); } catch (_) {}
+  }
+  return out;
+}
+
 /* ---------- מעטפת העמוד: כותרת, תפריט תחתון, מגירה ---------- */
 export async function initPage({ active = '', title = '', back = null, menu = true } = {}) {
   const { data: { session } } = await supabase.auth.getSession();
@@ -111,8 +126,8 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
   const { data: profiles } = await supabase.from('profiles').select('*').eq('active', true).order('created_at');
   const withPhoto = (profiles || []).filter(p => p.avatar_path);
   if (withPhoto.length) {
-    const { data: signed } = await supabase.storage.from('photos').createSignedUrls(withPhoto.map(p => p.avatar_path), 3600);
-    (signed || []).forEach(sg => { const p = withPhoto.find(x => x.avatar_path === sg.path); if (p && sg.signedUrl) p.avatar_url = sg.signedUrl; });
+    const u = await signedUrls(withPhoto.map(p => p.avatar_path));
+    withPhoto.forEach(p => { if (u[p.avatar_path]) p.avatar_url = u[p.avatar_path]; });
   }
   const me = (profiles || []).find(p => p.id === session.user.id) || null;
   const isAdmin = me?.role === 'admin';
