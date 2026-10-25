@@ -35,6 +35,11 @@
       <div><b>דמקה</b><span>משחק לזוג, חוקי דמקה אמיתיים</span></div>
       <div class="live" id="tCkLive">תורך!</div>
     </a>
+    <a class="gtile" href="battleship.html" id="tBs">
+      <div class="gi" style="background:linear-gradient(135deg,#1b6aa6,#0a2540)">&#9875;</div>
+      <div><b>צוללות</b><span>משחק לזוג, להטביע את הצי של היריב</span></div>
+      <div class="live" id="tBsLive">תורך!</div>
+    </a>
   </div>
 </main>
 <script type="module">
@@ -46,6 +51,12 @@ try {
   const { data } = await supabase.from('checkers_games').select('*').in('status', ['invite', 'play']);
   const my = (data || []).some(g => (g.status === 'invite' && g.black_id === uid) || (g.status === 'play' && g.turn === (g.white_id === uid ? 'w' : 'b')));
   if (my) document.getElementById('tCkLive').style.display = 'block';
+} catch (_) {}
+try {
+  const { data: { session } } = await supabase.auth.getSession(); const uid = session.user.id;
+  const { data } = await supabase.from('bs_games').select('*').in('status', ['invite', 'setup', 'play']);
+  const my = (data || []).some(g => { const a = g.a_id === uid; return (g.status === 'invite' && g.b_id === uid) || (g.status === 'setup' && !(a ? g.ready_a : g.ready_b)) || (g.status === 'play' && g.turn === (a ? 'a' : 'b')); });
+  if (my) document.getElementById('tBsLive').style.display = 'block';
 } catch (_) {}
 </script>
 </body>
