@@ -50,6 +50,11 @@
       <div><b>שש בש</b><span>משחק לזוג, שש בש קלאסי</span></div>
       <div class="live" id="tBgLive">תורך!</div>
     </a>
+    <a class="gtile" href="blackjack.html" id="tBj">
+      <div class="gi" style="background:linear-gradient(135deg,#17674d,#0a3326);color:#e8bd4f">21</div>
+      <div><b>21 (בלאק ג'ק)</b><span>מול הדילר, לבד או עם המשפחה</span></div>
+      <div class="live" id="tBjLive">שולחן פתוח!</div>
+    </a>
   </div>
 </main>
 <script type="module">
@@ -77,6 +82,10 @@ try {
 try {
   const { data } = await supabase.rpc('poker_list');
   if (data && (data.mine || (data.tables || []).some(t => t.status === 'lobby' && t.n < 6))) { const l = document.getElementById('tPkLive'); l.style.display = 'block'; if (data.mine) l.textContent = 'אתה בשולחן'; }
+} catch (_) {}
+try {
+  const { data } = await supabase.rpc('bj_list');
+  if (data && (data.mine || (data.tables || []).length)) { const l = document.getElementById('tBjLive'); l.style.display = 'block'; if (data.mine) l.textContent = 'אתה בשולחן'; }
 } catch (_) {}
 </script>
 </body>
