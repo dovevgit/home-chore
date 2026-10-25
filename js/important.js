@@ -49,6 +49,17 @@ export function startImportant(me, profiles) {
   const byId = Object.fromEntries((profiles || []).map(p => [p.id, p]));
   const st = document.createElement('style'); st.textContent = CSS; document.head.append(st);
 
+  /* מצב תצוגה מקדימה (מנהלים): חלונית לדוגמה על גבי הדף, בלי לשלוח או לשמור כלום */
+  let preview = null, pvUnread = [], pvMsgs = [];
+  try { const raw = sessionStorage.getItem('impPreview'); if (raw) { sessionStorage.removeItem('impPreview'); preview = JSON.parse(raw); } } catch (_) {}
+  if (preview) {
+    const texts = ['היי! זו הודעה לדוגמה, כך תיראה הודעה חשובה אצל הנמען.', 'עוד הודעה לדוגמה: מתי חוזרים הביתה?'];
+    (preview.senders || []).forEach((sid, i) => {
+      const at = new Date(Date.now() - 60000 * (i + 1)).toISOString();
+      pvUnread.push({ id: 'pv-' + sid, sender_id: sid, created_at: at });
+      pvMsgs.push({ id: 'pv-' + sid, sender_id: sid, body: texts[i % texts.length], photo_path: null, parent_id: null, created_at: at });
+    });
+  }
   let ov = null, view = 'list', curSender = null, shownIds = '', busy = false, photoBlob = null, photoUrl = null, unread = [];
 
   const close = () => { if (ov) { ov.remove(); ov = null; document.body.style.overflow = ''; } view = 'list'; curSender = null; shownIds = ''; };
@@ -83,14 +94,14 @@ export function startImportant(me, profiles) {
   async function openConv(sid, keepText) {
     const mine = unread.filter(u => u.sender_id === sid); if (!mine.length) { view = 'list'; renderList(); return; }
     const ids = mine.map(u => u.id);
-    const { data: msgs, error } = await supabase.from('important_msgs').select('id,sender_id,body,photo_path,parent_id,created_at').in('id', ids).order('created_at');
+    const { data: msgs, error } = preview ? { data: pvMsgs.filter(m => ids.includes(m.id)), error: null } : await supabase.from('important_msgs').select('id,sender_id,body,photo_path,parent_id,created_at').in('id', ids).order('created_at');
     if (error || !msgs) { showToast('לא הצלחנו לטעון את ההודעה', true); return; }
     msgs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     const pids = [...new Set(msgs.map(m => m.parent_id).filter(Boolean))];
-    const parents = pids.length ? ((await supabase.from('important_msgs').select('id,body,photo_path').in('id', pids)).data || []) : [];
+    const parents = pids.length && !preview ? ((await supabase.from('important_msgs').select('id,body,photo_path').in('id', pids)).data || []) : [];
     const pById = Object.fromEntries(parents.map(p => [p.id, p]));
     const urls = await signedUrls(msgs.map(m => m.photo_path));
-    supabase.from('important_reads').upsert(ids.map(id => ({ msg_id: id, user_id: me.id, done: false })), { onConflict: 'msg_id,user_id', ignoreDuplicates: true }).then(() => {}, () => {});
+    if (!preview) supabase.from('important_reads').upsert(ids.map(id => ({ msg_id: id, user_id: me.id, done: false })), { onConflict: 'msg_id,user_id', ignoreDuplicates: true }).then(() => {}, () => {});
     const keep = keepText ? ov?.querySelector('#impText')?.value || '' : '';
     view = 'conv'; curSender = sid; shownIds = ids.join(',');
     const p = byId[sid];
@@ -130,6 +141,12 @@ export function startImportant(me, profiles) {
       if (reply && !txt && !photoBlob) { showToast('כתבו תשובה או צרפו תמונה', true); return; }
       busy = true; $('impSend').disabled = true; $('impDone').disabled = true;
       try {
+        if (preview) {
+          pvUnread = pvUnread.filter(u => u.sender_id !== sid);
+          showToast('זו הייתה תצוגה בלבד, לא נשלח ולא נשמר כלום');
+          busy = false; view = 'list'; curSender = null; shownIds = ''; photoBlob = null; photoUrl = null;
+          await check(true); return;
+        }
         if (reply) {
           let path = null;
           if (photoBlob) {
@@ -154,7 +171,7 @@ export function startImportant(me, profiles) {
 
   async function check(force) {
     if (busy) return;
-    const { data, error } = await supabase.rpc('my_unread_important');
+    const { data, error } = preview ? { data: pvUnread, error: null } : await supabase.rpc('my_unread_important');
     if (error) return;
     unread = data || [];
     if (!unread.length) { close(); return; }
@@ -168,7 +185,7 @@ export function startImportant(me, profiles) {
   }
 
   check();
-  try {
+  if (!preview) try {
     supabase.channel('imp-' + me.id)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'important_msgs' }, p => { if ((p.new?.to_users || []).includes(me.id)) check(); })
       .subscribe();
