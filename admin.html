@@ -19,7 +19,7 @@
 <script type="module">
 import { initPage, supabase, esc, icon, iconBox, avatar, ilDate, ilTime, toIsraelDate, addDays, dow, CARD_COLORS, ROOMS } from './js/common.js';
 import { TASK_ICONS } from './js/icons.js';
-import { findConflicts } from './js/events.js';
+import { findConflicts, loadEvents, availability } from './js/events.js';
 import { generateOccurrences, syncOccurrences } from './js/generate.js';
 
 const { session, me, profiles, isAdmin } = await initPage({ title: 'ניהול משימות', back: 'index.html' });
@@ -263,6 +263,8 @@ function showForm(t) {
   wireTabs();
   const $ = id => document.getElementById(id);
   let slots = slotsInit;
+  let evs = [];
+  loadEvents().then(d => { evs = d; if ($('slots')) drawSlots(); });
   const allowedUsers = () => {
     const r = $('room').value;
     const by = n => users.filter(u => u.name === n);
@@ -277,6 +279,16 @@ function showForm(t) {
     if (r === 'weekly') { const wd = parseInt($('weekday').value); for (let k = 0; k < 7; k++) { const d = addDays(todayStr, k); if (dow(d) === wd) return d; } }
     return todayStr;
   };
+  const availHtml = (i, s, allowed, cd) => {
+    if (allowed.length < 2 || !s.time) return '';
+    const cur = { repeat: $('repeat').value, weekday: parseInt($('weekday').value), date: cd };
+    const av = availability(evs, cur, s.time, allowed.map(u => u.id));
+    return `<div class="avrow"><small>מי פנוי ב-${s.time}:</small>${allowed.map(u => {
+      const ab = absentOn(u.id, cd), b = av[u.id];
+      const st = ab ? 'abs' : b ? 'busy' : 'free', note = ab ? `נעדר/ת: ${esc(ab.reason)}` : b ? esc(b.title) : 'פנוי/ה';
+      return `<button type="button" class="avchip ${st} ${s.assignee_id === u.id ? 'on' : ''}" data-i="${i}" data-pick="${u.id}" ${ab ? 'disabled' : ''}><b>${esc(u.name)}</b><span>${st === 'free' ? '✓ ' : '✗ '}${note}</span></button>`;
+    }).join('')}</div>`;
+  };
   const drawSlots = () => {
     const n = Math.max(1, Math.min(10, parseInt($('times').value) || 1));
     const allowed = allowedUsers();
@@ -287,9 +299,10 @@ function showForm(t) {
     slots.forEach(s => { if (!allowed.some(u => u.id === s.assignee_id)) s.assignee_id = (free[0] || allowed[0])?.id || ''; });
     $('slots').innerHTML = slots.map((s, i) => `<div class="slotrow">
       <select class="sel" data-a="${i}" ${allowed.length === 1 ? 'disabled' : ''}>${allowed.map(u => { const ab = absentOn(u.id, cd); return `<option value="${u.id}" ${s.assignee_id === u.id ? 'selected' : ''} ${ab && s.assignee_id !== u.id ? 'disabled' : ''}>${esc(u.name)}${ab ? ` (נעדר/ת: ${esc(ab.reason)})` : ''}</option>`; }).join('')}</select>
-      <input type="time" data-t="${i}" value="${s.time}" dir="ltr"></div>`).join('');
+      <input type="time" data-t="${i}" value="${s.time}" dir="ltr"></div>${availHtml(i, s, allowed, cd)}`).join('');
     $('slots').querySelectorAll('[data-a]').forEach(el => el.onchange = () => slots[el.dataset.a].assignee_id = el.value);
-    $('slots').querySelectorAll('[data-t]').forEach(el => el.onchange = () => slots[el.dataset.t].time = el.value);
+    $('slots').querySelectorAll('[data-t]').forEach(el => el.onchange = () => { slots[el.dataset.t].time = el.value; drawSlots(); });
+    $('slots').querySelectorAll('[data-pick]').forEach(el => el.onclick = () => { slots[el.dataset.i].assignee_id = el.dataset.pick; drawSlots(); });
   };
   const toggle = () => { $('weekdayBox').classList.toggle('hidden', $('repeat').value !== 'weekly'); $('dateBox').classList.toggle('hidden', $('repeat').value !== 'once'); };
   $('times').oninput = drawSlots; $('room').onchange = drawSlots; $('date').onchange = drawSlots; $('weekday').onchange = drawSlots; $('repeat').onchange = () => { toggle(); drawSlots(); }; toggle(); drawSlots();
