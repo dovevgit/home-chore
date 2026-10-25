@@ -65,14 +65,17 @@ async function showList() {
     const opp = g.white_id === me.id ? g.black_id : g.white_id, [t, c] = label(g);
     return `<a class="ckrow" href="checkers.html?g=${g.id}">${avatar(byId[opp], 40)}<b>${esc(nm(opp))}</b><span class="cktag ${c}">${t}</span></a>`;
   };
-  const done = mine.filter(g => g.status === 'done').slice(0, 5);
+  const clrAt = (() => { try { return +localStorage.getItem('clr_checkers') || 0; } catch (_) { return 0; } })();
+  const done = mine.filter(g => g.status === 'done' && new Date(g.updated_at || g.created_at || 0).getTime() > clrAt).slice(0, 5);
   root.innerHTML = `
     <div class="ckcard"><h3>משחק חדש. עם מי משחקים?</h3><div class="ckpick">
       ${others.map(p => `<button class="ckp" data-id="${p.id}" type="button" ${busyWith.has(p.id) ? 'disabled style="opacity:.4"' : ''}>${avatar(p, 52)}${esc(p.name)}</button>`).join('') || '<p class="ckempty">אין עוד שחקנים</p>'}
     </div></div>
     <div class="ckcard"><h3>חבר שהוא לא מהמשפחה?</h3><button class="ckbtn" id="bGuest" type="button">הזמן אורח בקישור</button></div>
     ${active.length ? `<div class="ckcard"><h3>משחקים פעילים</h3>${active.map(row).join('')}</div>` : ''}
-    ${done.length ? `<div class="ckcard"><h3>משחקים אחרונים</h3>${done.map(row).join('')}</div>` : ''}${RULES}`;
+    ${done.length ? `<div class="ckcard"><h3>משחקים אחרונים<button class="ckclr" id="ckClr" type="button" style="border:0;background:transparent;font:inherit;font-size:13px;font-weight:700;color:inherit;opacity:.7;cursor:pointer;text-decoration:underline">נקה רשימה</button></h3>${done.map(row).join('')}</div>` : ''}${RULES}`;
+  const clrB = document.getElementById('ckClr');
+  if (clrB) clrB.onclick = () => { try { localStorage.setItem('clr_checkers', String(Date.now())); } catch (_) {} clrB.closest('.ckcard').remove(); };
   document.getElementById('bGuest').onclick = () => inviteGuest('checkers', d => { location.href = 'checkers.html?g=' + d.ref; });
   root.querySelectorAll('.ckp:not([disabled])').forEach(b => b.onclick = async () => {
     b.disabled = true;

@@ -166,14 +166,17 @@ async function showList() {
   };
   const row = g => { const opp = g.a_id === me.id ? g.b_id : g.a_id, [t, c] = label(g);
     return `<a class="bsrow" href="battleship.html?g=${g.id}">${avatar(byId[opp], 40)}<b>${esc(nm(opp))}</b><span class="bstag ${c}">${t}</span></a>`; };
-  const done = mine.filter(g => g.status === 'done').slice(0, 5);
+  const clrAt = (() => { try { return +localStorage.getItem('clr_bs') || 0; } catch (_) { return 0; } })();
+  const done = mine.filter(g => g.status === 'done' && new Date(g.updated_at || g.created_at || 0).getTime() > clrAt).slice(0, 5);
   root.innerHTML = `
     <div class="bscard"><h3>משחק חדש. עם מי משחקים?</h3><div class="bspick">
       ${others.map(p => `<button class="bsp" data-id="${p.id}" type="button" ${busyWith.has(p.id) ? 'disabled style="opacity:.4"' : ''}>${avatar(p, 52)}${esc(p.name)}</button>`).join('') || '<p>אין עוד שחקנים</p>'}
     </div></div>
     <div class="bscard"><h3>חבר שהוא לא מהמשפחה?</h3><button class="bsbtn" id="bGuest" type="button" style="width:100%">הזמן אורח בקישור</button></div>
     ${active.length ? `<div class="bscard"><h3>משחקים פעילים</h3>${active.map(row).join('')}</div>` : ''}
-    ${done.length ? `<div class="bscard"><h3>משחקים אחרונים</h3>${done.map(row).join('')}</div>` : ''}${RULES}`;
+    ${done.length ? `<div class="bscard"><h3>משחקים אחרונים<button class="bsclr" id="bsClr" type="button" style="border:0;background:transparent;font:inherit;font-size:13px;font-weight:700;color:inherit;opacity:.7;cursor:pointer;text-decoration:underline">נקה רשימה</button></h3>${done.map(row).join('')}</div>` : ''}${RULES}`;
+  const clrB = document.getElementById('bsClr');
+  if (clrB) clrB.onclick = () => { try { localStorage.setItem('clr_bs', String(Date.now())); } catch (_) {} clrB.closest('.bscard').remove(); };
   document.getElementById('bGuest').onclick = () => inviteGuest('bs', d => { location.href = 'battleship.html?g=' + d.ref; });
   root.querySelectorAll('.bsp:not([disabled])').forEach(b => b.onclick = async () => {
     b.disabled = true;
