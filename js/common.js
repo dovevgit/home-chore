@@ -183,8 +183,10 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
         b.style.display = '';
         lab.textContent = st === 'on' ? 'התראות פעילות ✓' : st === 'denied' ? 'התראות חסומות (בהגדרות הטלפון)' : st === 'unsupported' ? (P.isIOS() && !P.isStandalone() ? 'התראות: פתחו מהאייקון במסך הבית' : 'התראות לא נתמכות כאן') : 'הפעל התראות';
         b.dataset.st = st;
+        if (st === 'on' && sessionStorage.getItem('pushSynced') !== '1') { try { await P.syncPush(session.user.id); sessionStorage.setItem('pushSynced', '1'); } catch (_) {} }
       };
       b.addEventListener('click', async () => {
+        if (b.dataset.st === 'on') { try { await P.syncPush(session.user.id); showToast('המכשיר עודכן ✓'); } catch (e) { showToast('העדכון נכשל: ' + e.message, true); } return; }
         if (b.dataset.st !== 'off') return;
         try { await P.enablePush(session.user.id); showToast('ההתראות הופעלו במכשיר הזה'); } catch (e) { showToast((e.message === 'denied' ? 'לא אושרו התראות' : 'ההפעלה נכשלה') + (e.detail ? ': ' + e.detail : ''), true); }
         draw();

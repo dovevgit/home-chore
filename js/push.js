@@ -37,6 +37,16 @@ export async function enablePush(userId) {
   if (e2) throw fail('save', `שלב שמירה: ${e2.message}`.slice(0, 160));
 }
 
+// מסנכרן מכשיר שכבר רשום בדפדפן אל השרת (למקרה שהשמירה הראשונה נכשלה)
+export async function syncPush(userId) {
+  const reg = await swReady();
+  const sub = await reg.pushManager.getSubscription();
+  if (!sub) throw new Error('nosub');
+  const j = sub.toJSON();
+  const { error } = await supabase.from('push_subs').upsert({ user_id: userId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: 'endpoint' });
+  if (error) throw new Error(error.message);
+}
+
 export async function sendTestPush() {
   const { data, error } = await supabase.functions.invoke('push', { body: { action: 'test' } });
   if (error) throw new Error('test');
