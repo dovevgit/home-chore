@@ -3,13 +3,13 @@ import { supabase, esc, showToast } from './common.js';
 
 export const guestToken = () => new URLSearchParams(location.search).get('t');
 
-const KIND_PAGE = { checkers: 'checkers.html', game: 'game.html', bs: 'battleship.html' };
-const KIND_NAME = { checkers: 'דמקה', game: 'חי צומח דומם', bs: 'צוללות' };
+const KIND_PAGE = { checkers: 'checkers.html', game: 'game.html', bs: 'battleship.html', poker: 'poker.html' };
+const KIND_NAME = { checkers: 'דמקה', game: 'חי צומח דומם', bs: 'צוללות', poker: 'פוקר' };
 
 const callRpc = (token, fn, args) => supabase.rpc('guest_call', { p_token: token, p_fn: fn, p_args: args || {} });
 
 function box(html) {
-  const host = document.getElementById('gm') || document.getElementById('ck') || document.getElementById('bs') || document.body;
+  const host = document.getElementById('gm') || document.getElementById('ck') || document.getElementById('bs') || document.getElementById('pk') || document.body;
   host.innerHTML = `<div style="max-width:420px;margin:30px auto 0;background:#fff;border-radius:22px;padding:22px;text-align:center;box-shadow:0 4px 18px rgba(13,110,253,.18);border:3px solid #E3ECFF;color:#2B2A4C">${html}</div>`;
   return host;
 }
@@ -43,7 +43,7 @@ export async function guestMode(kind, token) {
         document.getElementById('gGo').disabled = true;
         const { error: e2 } = await supabase.rpc('guest_enter', { p_token: token, p_name: name });
         if (e2) {
-          err.textContent = /no_room|game_over/.test(e2.message) ? 'המשחק כבר הסתיים' : /bad_link/.test(e2.message) ? 'הקישור לא תקף' : 'ההצטרפות נכשלה, נסו שוב';
+          err.textContent = /table_full/.test(e2.message) ? 'השולחן מלא' : /closed/.test(e2.message) ? 'השולחן נסגר' : /no_room|game_over/.test(e2.message) ? 'המשחק כבר הסתיים' : /bad_link/.test(e2.message) ? 'הקישור לא תקף' : 'ההצטרפות נכשלה, נסו שוב';
           document.getElementById('gGo').disabled = false; return;
         }
         try { localStorage.setItem('guestName', name); } catch (_) {}
@@ -61,7 +61,7 @@ export async function guestMode(kind, token) {
 export async function inviteGuest(kind, onClose) {
   const { data, error } = await supabase.rpc('guest_create', { p_kind: kind });
   if (error) {
-    showToast(/no_game|not_in_game/.test(error.message) ? 'אפשר להזמין אורח רק כשאתם בתוך משחק פתוח' : /too_many/.test(error.message) ? 'יצרתם יותר מדי קישורים להיום' : 'יצירת הקישור נכשלה', true);
+    showToast(/no_game|not_in_game|no_table/.test(error.message) ? 'אפשר להזמין אורח רק כשאתם בתוך משחק או שולחן פתוח' : /too_many/.test(error.message) ? 'יצרתם יותר מדי קישורים להיום' : 'יצירת הקישור נכשלה', true);
     return null;
   }
   const u = new URL(KIND_PAGE[kind], location.href); u.search = ''; u.hash = ''; u.searchParams.set('t', data.token);
