@@ -1,0 +1,170 @@
+import { initPage, supabase, esc, avatar, showToast } from './common.js';
+import { legalMoves, applyMove, colorOf, counts } from './checkers-rules.js';
+
+const { session, profiles } = await initPage({ active: 'games', title: 'דמקה' });
+const me = (profiles || []).find(p => p.id === session.user.id) || { id: session.user.id, name: '' };
+const byId = Object.fromEntries((profiles || []).map(p => [p.id, p]));
+const root = document.getElementById('ck');
+const gid = new URLSearchParams(location.search).get('g');
+const CROWN = '<svg viewBox="0 0 24 24"><path d="M3 18h18l1-10-5 4-5-8-5 8-5-4z" fill="#FFC93C" stroke="#B07A00" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+const nm = id => (byId[id] && byId[id].name) || 'שחקן';
+
+// צלילים קטנים
+let AC = null;
+function beep(freq, dur, type = 'sine', vol = .15, at = 0) {
+  try {
+    if (localStorage.getItem('soundOff') === '1') return;
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const t = AC.currentTime + at, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g).connect(AC.destination); o.start(t); o.stop(t + dur + .02);
+  } catch (_) {}
+}
+const sMove = () => beep(300, .09, 'triangle', .2);
+const sCap = () => { beep(220, .1, 'square', .12); beep(150, .14, 'square', .12, .08); };
+const sWin = () => [523, 659, 784, 1047].forEach((f, i) => beep(f, .2, 'triangle', .18, i * .12));
+
+/* ================= רשימה ================= */
+async function showList() {
+  const { data: games } = await supabase.from('checkers_games').select('*').order('updated_at', { ascending: false }).limit(30);
+  const mine = games || [];
+  const active = mine.filter(g => g.status === 'invite' || g.status === 'play');
+  const busyWith = new Set(active.map(g => g.white_id === me.id ? g.black_id : g.white_id));
+  const others = (profiles || []).filter(p => p.is_user !== false && p.id !== me.id);
+  const label = g => {
+    if (g.status === 'invite') return g.white_id === me.id ? ['ממתין לאישור', ''] : ['הזמנה אליך', 'me'];
+    if (g.status === 'play') { const my = (g.white_id === me.id) === (g.turn === 'w'); return my ? ['התור שלך', 'me'] : ['התור שלו/ה', '']; }
+    if (g.status === 'done') return [g.result === 'draw' ? 'תיקו' : g.winner === me.id ? 'ניצחת' : 'הפסדת', ''];
+    return ['בוטל', ''];
+  };
+  const row = g => {
+    const opp = g.white_id === me.id ? g.black_id : g.white_id, [t, c] = label(g);
+    return `<a class="ckrow" href="checkers.html?g=${g.id}">${avatar(byId[opp], 40)}<b>${esc(nm(opp))}</b><span class="cktag ${c}">${t}</span></a>`;
+  };
+  const done = mine.filter(g => g.status === 'done').slice(0, 5);
+  root.innerHTML = `
+    <div class="ckcard"><h3>משחק חדש. עם מי משחקים?</h3><div class="ckpick">
+      ${others.map(p => `<button class="ckp" data-id="${p.id}" type="button" ${busyWith.has(p.id) ? 'disabled style="opacity:.4"' : ''}>${avatar(p, 52)}${esc(p.name)}</button>`).join('') || '<p class="ckempty">אין עוד שחקנים</p>'}
+    </div></div>
+    ${active.length ? `<div class="ckcard"><h3>משחקים פעילים</h3>${active.map(row).join('')}</div>` : ''}
+    ${done.length ? `<div class="ckcard"><h3>משחקים אחרונים</h3>${done.map(row).join('')}</div>` : ''}`;
+  root.querySelectorAll('.ckp:not([disabled])').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    const { data, error } = await supabase.rpc('checkers_invite', { p_opp: b.dataset.id });
+    if (error) { showToast(/game_exists/.test(error.message) ? 'כבר יש משחק פעיל עם השחקן הזה' : 'ההזמנה נכשלה', true); b.disabled = false; return; }
+    location.href = 'checkers.html?g=' + data;
+  });
+}
+
+/* ================= משחק ================= */
+let G = null, sel = [], lastKey = '', busy = false;
+
+async function load() {
+  const { data } = await supabase.from('checkers_games').select('*').eq('id', gid).maybeSingle();
+  if (!data) { root.innerHTML = '<p class="ckempty">המשחק לא נמצא</p><a class="ckbtn g" style="display:block;text-align:center;text-decoration:none" href="checkers.html">חזרה</a>'; return; }
+  const key = [data.status, data.board, data.turn, data.draw_offer, data.updated_at].join('|');
+  const prev = G; G = data;
+  if (key === lastKey) return;
+  lastKey = key;
+  if (prev && prev.board !== data.board) {
+    sel = [];
+    const mineMove = (prev.turn === 'w') === (data.white_id === me.id);
+    if (!mineMove) { (counts(prev.board).w + counts(prev.board).W + counts(prev.board).b + counts(prev.board).B) !== (counts(data.board).w + counts(data.board).W + counts(data.board).b + counts(data.board).B) ? sCap() : sMove(); }
+  }
+  if (prev && prev.status === 'play' && data.status === 'done' && data.winner === me.id) sWin();
+  render();
+}
+
+function render() {
+  const g = G, iW = g.white_id === me.id, myCol = iW ? 'w' : 'b', oppId = iW ? g.black_id : g.white_id;
+  const myTurn = g.status === 'play' && g.turn === myCol;
+  const legal = myTurn ? legalMoves(g.board, myCol) : [];
+  const last = (g.last_path || '').split(',').filter(Boolean).map(Number);
+  const cand = sel.length ? legal.filter(m => sel.every((s, i) => m.path[i] === s)) : [];
+  const nexts = new Set(sel.length ? cand.map(m => m.path[sel.length]).filter(v => v !== undefined) : []);
+  const origins = new Set(legal.map(m => m.path[0]));
+  const forcedCap = legal.some(m => m.captured.length);
+
+  let msg = '';
+  if (g.status === 'invite') msg = iW ? `ממתינים ש${nm(oppId)} יאשר/תאשר` : `${nm(oppId)} הזמין/ה אותך לשחק`;
+  else if (g.status === 'play') msg = myTurn ? (sel.length ? 'בחר/י לאן ממשיכים' : forcedCap ? 'חובה לאכול!' : 'התור שלך') : `התור של ${nm(oppId)}`;
+  else if (g.status === 'done') msg = g.result === 'draw' ? 'המשחק הסתיים בתיקו' : g.winner === me.id ? (g.result === 'resign' ? `${nm(oppId)} ויתר/ה. ניצחת!` : 'ניצחת! כל הכבוד') : (g.result === 'resign' ? 'ויתרת על המשחק' : `${nm(oppId)} ניצח/ה`);
+  else msg = 'ההזמנה בוטלה';
+
+  const flip = !iW;
+  let cells = '';
+  for (let k = 0; k < 64; k++) {
+    const i = flip ? 63 - k : k, r = Math.floor(i / 8), c = i % 8, dark = (r + c) % 2 === 1, ch = g.board[i];
+    const cls = ['cks', dark ? 'ckd' : 'ckl'];
+    if (last.includes(i)) cls.push('last');
+    if (sel.includes(i)) cls.push('sel');
+    else if (myTurn && !sel.length && origins.has(i) && forcedCap) cls.push('mov');
+    if (nexts.has(i)) cls.push('go');
+    const pc = ch !== '.' ? `<div class="ckpc ${colorOf(ch)}">${ch === 'W' || ch === 'B' ? CROWN : ''}</div>` : '';
+    cells += `<div class="${cls.join(' ')}" data-i="${i}">${pc}</div>`;
+  }
+  const bar = (id, mineBar) => `<div class="ckbar ${g.status === 'play' && (g.turn === (id === g.white_id ? 'w' : 'b')) ? 'turn' : ''}">${avatar(byId[id], 38)}<span>${esc(mineBar ? 'אני' : nm(id))}</span><span class="ckdot">${id === g.white_id ? 'לבן' : 'שחור'}</span></div>`;
+
+  let btns = '';
+  if (g.status === 'invite') btns = iW ? `<button class="ckbtn r" id="bCancel" type="button">בטל הזמנה</button>` : `<button class="ckbtn ok" id="bYes" type="button">בוא נשחק</button><button class="ckbtn g" id="bNo" type="button">לא עכשיו</button>`;
+  else if (g.status === 'play') {
+    if (g.draw_offer && g.draw_offer !== me.id) btns = `<button class="ckbtn ok" id="bDrawYes" type="button">מאשר/ת תיקו</button><button class="ckbtn g" id="bDrawNo" type="button">לא</button>`;
+    else btns = `<button class="ckbtn g" id="bDraw" type="button" ${g.draw_offer === me.id ? 'disabled' : ''}>${g.draw_offer === me.id ? 'הצעת תיקו נשלחה' : 'הצע תיקו'}</button><button class="ckbtn r" id="bResign" type="button">ויתור</button>`;
+  } else btns = `<a class="ckbtn" style="text-align:center;text-decoration:none" href="checkers.html">למשחקים</a>`;
+
+  root.innerHTML = `${bar(oppId, false)}<div class="ckboard" id="bd">${cells}</div>${bar(me.id, true)}<div class="ckmsg">${msg}</div><div class="ckbtns">${btns}</div>`;
+  root.querySelectorAll('.cks').forEach(el => el.onclick = () => tap(+el.dataset.i));
+  const $ = id => document.getElementById(id);
+  const rpc = async (fn, args) => { if (busy) return; busy = true; const { error } = await supabase.rpc(fn, args); busy = false; if (error) showToast('הפעולה נכשלה', true); await load(); };
+  if ($('bCancel')) $('bCancel').onclick = () => rpc('checkers_resign', { p_game: gid });
+  if ($('bYes')) $('bYes').onclick = () => rpc('checkers_respond', { p_game: gid, p_accept: true });
+  if ($('bNo')) $('bNo').onclick = async () => { await rpc('checkers_respond', { p_game: gid, p_accept: false }); location.href = 'checkers.html'; };
+  if ($('bDraw')) $('bDraw').onclick = () => rpc('checkers_draw', { p_game: gid, p_action: 'offer' });
+  if ($('bDrawYes')) $('bDrawYes').onclick = () => rpc('checkers_draw', { p_game: gid, p_action: 'accept' });
+  if ($('bDrawNo')) $('bDrawNo').onclick = () => rpc('checkers_draw', { p_game: gid, p_action: 'decline' });
+  if ($('bResign')) $('bResign').onclick = () => { if (confirm('לוותר על המשחק?')) rpc('checkers_resign', { p_game: gid }); };
+}
+
+async function tap(i) {
+  const g = G; if (!g || g.status !== 'play' || busy) return;
+  const myCol = g.white_id === me.id ? 'w' : 'b';
+  if (g.turn !== myCol) return;
+  const legal = legalMoves(g.board, myCol);
+  const origins = new Set(legal.map(m => m.path[0]));
+  if (!sel.length || (sel.length === 1 && origins.has(i))) {
+    if (origins.has(i)) { sel = [i]; render(); }
+    else if (colorOf(g.board[i]) === myCol && legal.some(m => m.captured.length)) showToast('חובה לאכול');
+    else { sel = []; render(); }
+    return;
+  }
+  const cand = legal.filter(m => sel.every((s, k) => m.path[k] === s));
+  if (!cand.some(m => m.path[sel.length] === i)) { sel = []; render(); return; }
+  sel = sel.concat(i);
+  const next = cand.filter(m => m.path[sel.length - 1] === i);
+  const done = next.find(m => m.path.length === sel.length);
+  if (!done) { render(); return; }
+  // המהלך הושלם
+  const { board, reset } = applyMove(g.board, done);
+  const oppCol = myCol === 'w' ? 'b' : 'w';
+  const quiet = reset ? 0 : (g.quiet || 0) + 1;
+  let result = null;
+  if (!legalMoves(board, oppCol).length) result = 'win'; else if (quiet >= 30) result = 'draw';
+  const path = done.path.join(',');
+  busy = true;
+  (done.captured.length ? sCap : sMove)();
+  G = { ...g, board, turn: oppCol, last_path: path, quiet, draw_offer: null, status: result ? 'done' : 'play', winner: result === 'win' ? me.id : null, result };
+  sel = []; render();
+  const { error } = await supabase.rpc('checkers_move', { p_game: gid, p_board: board, p_path: path, p_quiet: quiet, p_result: result });
+  busy = false;
+  if (error) showToast('המהלך לא נשמר. נסו שוב', true);
+  else if (result === 'win') sWin();
+  lastKey = ''; await load();
+}
+
+/* ================= הפעלה ================= */
+if (!gid) await showList();
+else {
+  await load();
+  setInterval(() => { if (!busy) load(); }, 3500);
+  supabase.channel('ck-' + gid).on('postgres_changes', { event: '*', schema: 'public', table: 'checkers_games', filter: 'id=eq.' + gid }, () => { if (!busy) load(); }).subscribe();
+}
