@@ -19,6 +19,10 @@ export async function weeklyPoints(now = new Date()) {
     const { data: rp } = await supabase.rpc('request_points', { p_since: ws.start.toISOString(), p_until: ws.end.toISOString() });
     for (const r of rp || []) pointsByUser[r.user_id] = (pointsByUser[r.user_id] || 0) + Number(r.pts);
   } catch (_) {}
+  try {
+    const { data: bp } = await supabase.rpc('bonus_totals', { p_since: ws.start.toISOString(), p_until: ws.end.toISOString() });
+    for (const r of bp || []) pointsByUser[r.user_id] = (pointsByUser[r.user_id] || 0) + Number(r.pts);
+  } catch (_) {}
   return { pointsByUser, ws };
 }
 
@@ -47,6 +51,10 @@ export async function lifetimePoints() {
   try {
     const { data: rp } = await supabase.rpc('request_points', { p_since: '2000-01-01T00:00:00Z', p_until: '2100-01-01T00:00:00Z' });
     for (const r of rp || []) earnedByUser[r.user_id] = (earnedByUser[r.user_id] || 0) + Number(r.pts);
+  } catch (_) {}
+  try {
+    const { data: bp } = await supabase.rpc('bonus_totals', { p_since: '2000-01-01T00:00:00Z', p_until: '2100-01-01T00:00:00Z' });
+    for (const r of bp || []) earnedByUser[r.user_id] = (earnedByUser[r.user_id] || 0) + Number(r.pts);
   } catch (_) {}
   return { earnedByUser };
 }
