@@ -95,6 +95,8 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradi
 .gsnd{position:fixed;bottom:max(12px,env(safe-area-inset-bottom,0px));inset-inline-start:14px;z-index:30;font-family:inherit;font-weight:800;font-size:14px;color:var(--gink);background:#fff;border:3px solid var(--gline);border-radius:999px;padding:6px 12px;cursor:pointer;box-shadow:0 3px 10px rgba(30,60,140,.25)}
 .gerr{color:#B91C1C;font-weight:800;text-align:center;margin:6px 0}
 @media (prefers-reduced-motion:reduce){#gm *,.gvig{animation:none!important;transition:none!important}}
+/* בלי הפס הכחול העליון במשחקים, כדי שלא יפריע */
+header.bar{display:none}body{padding-top:10px}
 </style>
 </head>
 <body>
