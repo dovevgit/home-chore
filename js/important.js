@@ -277,7 +277,7 @@ export function startImportant(me, profiles) {
     const { data, error } = preview ? { data: pvUnread, error: null } : await supabase.rpc('my_unread_important');
     if (error) return;
     unread = data || [];
-    { const fresh = unread.filter(u => !knownIds.has(u.id)); unread.forEach(u => knownIds.add(u.id)); if (fresh.length && !preview) playChime(); }
+    { const fresh = unread.filter(u => !knownIds.has(u.id)); unread.forEach(u => knownIds.add(u.id)); if (fresh.length) playChime(); }
     if (view === 'thread' && curSender) {
       const ids = unread.filter(u => u.sender_id === curSender).map(u => u.id);
       if (ids.some(id => !shownIds.split(',').includes(id))) openThread(curSender, true);   // הגיעה הודעה חדשה תוך כדי שיחה
