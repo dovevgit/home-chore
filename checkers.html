@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | דמקה</title>
+<meta name="theme-color" content="#0D6EFD">
+<meta name="color-scheme" content="only light">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/style.css">
+<style>
+body{background:#EAF3FF}
+#ck{max-width:480px;margin:0 auto;padding:0 12px 18px;display:flex;flex-direction:column;gap:12px;color:#2B2A4C}
+#ck *{box-sizing:border-box}
+.ckcard{background:#fff;border-radius:18px;padding:14px;box-shadow:0 2px 10px rgba(13,110,253,.12);border:2px solid #E3ECFF}
+.ckcard h3{margin:0 0 10px;font-size:17px}
+.ckpick{display:flex;flex-wrap:wrap;gap:10px}
+.ckp{display:flex;flex-direction:column;align-items:center;gap:4px;width:68px;background:none;border:0;font:inherit;font-size:13px;font-weight:700;cursor:pointer;color:inherit;padding:4px;border-radius:12px}
+.ckp:active{background:#EEF3FF}
+.ckrow{display:flex;align-items:center;gap:10px;padding:10px 4px;border-top:1px solid #EEF2FA;text-decoration:none;color:inherit}
+.ckrow:first-of-type{border-top:0}
+.ckrow b{flex:1}
+.cktag{font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px;background:#EEF3FF;color:#3B4FA0}
+.cktag.me{background:#FF7A1A;color:#fff}
+.ckbar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:16px;background:#fff;border:3px solid transparent;font-weight:800}
+.ckbar.turn{border-color:#12B5A6;box-shadow:0 0 0 3px rgba(18,181,166,.2)}
+.ckbar .ckdot{margin-inline-start:auto;font-size:13px;color:#12B5A6}
+.ckboard{width:100%;aspect-ratio:1;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);border-radius:12px;overflow:hidden;border:6px solid #6B3F1D;box-shadow:0 6px 18px rgba(60,30,0,.35);direction:ltr}
+.cks{position:relative;display:flex;align-items:center;justify-content:center}
+.cks.ckl{background:#F4E2C0}.cks.ckd{background:#9A6032}
+.cks.last{box-shadow:inset 0 0 0 100px rgba(255,214,0,.28)}
+.cks.sel{box-shadow:inset 0 0 0 100px rgba(18,181,166,.45)}
+.cks.go::after{content:"";width:30%;height:30%;border-radius:50%;background:rgba(18,181,166,.85);position:absolute;box-shadow:0 0 0 4px rgba(255,255,255,.55)}
+.cks.mov{box-shadow:inset 0 0 0 3px #FFD21F}
+.ckpc{width:80%;height:80%;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;transition:transform .12s}
+.ckpc.w{background:radial-gradient(circle at 35% 30%,#fff,#f1e3c6 60%,#c9b48a);box-shadow:0 3px 0 #a38c5d,0 5px 6px rgba(0,0,0,.35)}
+.ckpc.b{background:radial-gradient(circle at 35% 30%,#6a6a86,#2b2b40 60%,#14142a);box-shadow:0 3px 0 #0a0a18,0 5px 6px rgba(0,0,0,.45)}
+.ckpc::before{content:"";position:absolute;inset:14%;border-radius:50%;border:2px solid rgba(0,0,0,.15)}
+.ckpc.b::before{border-color:rgba(255,255,255,.2)}
+.ckpc svg{width:58%;height:58%;position:relative;filter:drop-shadow(0 1px 0 rgba(0,0,0,.4))}
+.cks.sel .ckpc{transform:translateY(-3px) scale(1.05)}
+.ckmsg{text-align:center;font-weight:800;font-size:16px;min-height:24px}
+.ckbtns{display:flex;gap:10px}
+.ckbtn{flex:1;padding:12px;border-radius:14px;border:0;font:inherit;font-weight:800;font-size:15px;cursor:pointer;background:#6C5CE7;color:#fff;box-shadow:0 3px 0 #4a3db8}
+.ckbtn.g{background:#fff;color:#2B2A4C;box-shadow:0 3px 0 #cfd8ea;border:2px solid #cfd8ea}
+.ckbtn.r{background:#FF6B6B;box-shadow:0 3px 0 #c94a4a}
+.ckbtn.ok{background:#12B5A6;box-shadow:0 3px 0 #0b8277}
+.ckbtn:disabled{opacity:.5}
+.ckempty{text-align:center;opacity:.7;padding:6px}
+</style>
+</head>
+<body>
+<main id="ck"><p class="ckempty">טוען...</p></main>
+<script type="module" src="js/checkerspage.js"></script>
+</body>
+</html>

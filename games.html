@@ -30,12 +30,23 @@
       <div><b>חי צומח דומם</b><span>משחק מילים לכל המשפחה</span></div>
       <div class="live" id="tLive">משחק פתוח!</div>
     </a>
+    <a class="gtile" href="checkers.html" id="tCk">
+      <div class="gi" style="background:linear-gradient(135deg,#9A6032,#2b2b40)">&#9679;</div>
+      <div><b>דמקה</b><span>משחק לזוג, חוקי דמקה אמיתיים</span></div>
+      <div class="live" id="tCkLive">תורך!</div>
+    </a>
   </div>
 </main>
 <script type="module">
 import { initPage, supabase } from './js/common.js';
 await initPage({ active: 'games', title: 'משחקים' });
 try { const { data } = await supabase.rpc('game_current'); if (data && data.status !== 'final') document.getElementById('tLive').style.display = 'block'; } catch (_) {}
+try {
+  const { data: { session } } = await supabase.auth.getSession(); const uid = session.user.id;
+  const { data } = await supabase.from('checkers_games').select('*').in('status', ['invite', 'play']);
+  const my = (data || []).some(g => (g.status === 'invite' && g.black_id === uid) || (g.status === 'play' && g.turn === (g.white_id === uid ? 'w' : 'b')));
+  if (my) document.getElementById('tCkLive').style.display = 'block';
+} catch (_) {}
 </script>
 </body>
 </html>
