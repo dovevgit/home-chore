@@ -135,11 +135,11 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
   const header = document.createElement('header');
   header.className = 'bar';
   header.innerHTML = back
-    ? `<a class="iconbtn" href="${back}" aria-label="חזרה">${icon('arrow-right', 24)}</a><h1>${esc(title)}</h1><span class="iconbtn ghost"></span>`
+    ? `<a class="iconbtn" href="${back}" aria-label="חזרה">${icon('arrow-right', 24)}</a><h1>${esc(title)}</h1>${menu ? `<button class="iconbtn" id="menuBtn" aria-label="תפריט">${icon('menu', 24)}</button>` : '<span class="iconbtn ghost"></span>'}`
     : `<span class="iconbtn ghost"></span><h1>${title === 'הבית שלנו' ? '<img class="brand" src="logo-text.png" alt="הבית שלנו">' : esc(title)}</h1>${menu ? `<button class="iconbtn" id="menuBtn" aria-label="תפריט">${icon('menu', 24)}</button>` : ''}`;
   document.body.prepend(header);
 
-  if (!back) {
+  if (menu) {
     const drawer = document.createElement('div');
     drawer.className = 'drawer hidden';
     drawer.innerHTML = `<div class="drawer-bg"></div><nav class="drawer-panel">
@@ -161,6 +161,8 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
     drawer.querySelector('.drawer-bg').addEventListener('click', () => drawer.classList.add('hidden'));
     drawer.querySelector('#logout').addEventListener('click', async () => { await supabase.auth.signOut(); location.replace('login.html'); });
 
+  }
+  if (!back) {
     const nav = document.createElement('nav');
     nav.className = 'tabbar';
     nav.innerHTML = `
@@ -169,6 +171,8 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
       <a href="calendar.html" class="${active === 'calendar' ? 'on' : ''}">${icon('calendar-days', 26)}<span>לוח שנה</span></a>
       <a href="history.html" class="${active === 'history' ? 'on' : ''}">${icon('chart-column', 26)}<span>היסטוריה</span></a>`;
     document.body.append(nav);
+  }
+  if (menu) {
     // מעבר בין לשוניות ותפריט לא מוסיף להיסטוריה: חץ אחורה מהבית יוצא מהאפליקציה
     document.querySelectorAll('.tabbar a, .drawer-panel a').forEach(a => a.addEventListener('click', ev => {
       if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button) return;
