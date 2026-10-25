@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | משחקים</title>
+<meta name="theme-color" content="#0D6EFD">
+<meta name="color-scheme" content="only light">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/style.css">
+<style>
+.glist{display:grid;gap:12px;margin-top:6px}
+.gtile{display:flex;align-items:center;gap:14px;padding:16px;border-radius:18px;background:#fff;box-shadow:0 2px 10px rgba(13,110,253,.12);text-decoration:none;color:inherit;border:2px solid #e3ecff}
+.gtile .gi{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#6c5ce7,#3ab5ff);color:#fff;font-size:28px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
+.gtile b{display:block;font-size:18px}
+.gtile span{font-size:14px;opacity:.7}
+.gtile .live{margin-inline-start:auto;background:#ff7a1a;color:#fff;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;display:none}
+</style>
+</head>
+<body>
+<main>
+  <div class="glist">
+    <a class="gtile" href="game.html" id="tAnimals">
+      <div class="gi">א</div>
+      <div><b>חי צומח דומם</b><span>משחק מילים לכל המשפחה</span></div>
+      <div class="live" id="tLive">משחק פתוח!</div>
+    </a>
+  </div>
+</main>
+<script type="module">
+import { initPage, supabase } from './js/common.js';
+await initPage({ active: 'games', title: 'משחקים' });
+try { const { data } = await supabase.rpc('game_current'); if (data && data.status !== 'final') document.getElementById('tLive').style.display = 'block'; } catch (_) {}
+</script>
+</body>
+</html>

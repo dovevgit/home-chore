@@ -1,6 +1,6 @@
 // Service worker מינימלי: שומר את קבצי המעטפת לפתיחה מהירה. נתונים תמיד מהרשת.
-const CACHE = 'habayit-v55';
-const SHELL = ['./','./index.html','./login.html','./css/style.css','./js/splash.js','./splash.jpg','./splash.jpg','./js/config.js','./js/supabase.js','./js/common.js','./js/icons.js','./js/generate.js','./js/points.js','./tasks.html','./task.html','./admin.html','./report.html','./history.html','./chat.html','./calendar.html','./requests.html','./info.html','./fridge.html','./shop.html','./outing.html','./js/outings.js', './important.html', './js/important.js', './js/push.js','./js/bonus.js','./game.html','./js/gamepage.js','./js/game.js','./game-bg.jpg','./js/events.js','./manifest.webmanifest','./logo.png','./login-bg.jpg','./logo-text.png'];
+const CACHE = 'habayit-v56';
+const SHELL = ['./','./index.html','./login.html','./css/style.css','./js/splash.js','./splash.jpg','./splash.jpg','./js/config.js','./js/supabase.js','./js/common.js','./js/icons.js','./js/generate.js','./js/points.js','./tasks.html','./task.html','./admin.html','./report.html','./history.html','./chat.html','./calendar.html','./requests.html','./info.html','./fridge.html','./shop.html','./outing.html','./js/outings.js', './important.html', './js/important.js', './js/push.js','./js/bonus.js','./game.html','./games.html','./js/gamepage.js','./js/game.js','./game-bg.jpg','./js/events.js','./manifest.webmanifest','./logo.png','./login-bg.jpg','./logo-text.png'];
 // כל קובץ נשמר בנפרד וללא כפילויות: קובץ חסר או כפול לא מפיל את ההתקנה של ה-Service Worker
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => Promise.allSettled([...new Set(SHELL)].map(u => c.add(u))))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
