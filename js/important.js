@@ -1,5 +1,5 @@
 // "הודעה חשובה": החלונית הגדולה והכתומה שקופצת אצל הנמענים עד שעונים.
-import { supabase, esc, icon, avatar, ilDate, ilTime, signedUrls, shrinkImage, showToast } from './common.js';
+import { supabase, esc, icon, avatar, ilDate, ilTime, signedUrls, shrinkImage, showToast, playChime } from './common.js';
 
 const CSS = `
 .impov{position:fixed;inset:0;z-index:500;background:rgba(40,20,0,.55);backdrop-filter:blur(2px);animation:impfade .25s ease}
@@ -34,6 +34,9 @@ const CSS = `
 .toast{z-index:700!important}
 .impzoom{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:10px}
 .impzoom img{max-width:100%;max-height:100%;border-radius:12px}
+.impdel{border:0;background:none;color:#B91C1C;font-family:inherit;font-weight:700;font-size:12px;cursor:pointer;margin-inline-start:8px}
+.impmsg.impme{background:#FFE7CC;border-color:#FFB366;margin-inline-start:28px}
+.impmsg:not(.impme){margin-inline-end:28px}
 .implist{margin-top:8px;display:flex;flex-direction:column;gap:6px}
 .impitem{display:flex;align-items:center;gap:12px;background:#FFF7ED;border:2px solid #FFD2A1;border-radius:14px;padding:10px 12px;font-size:19px;cursor:pointer}
 .impitem input{width:24px;height:24px;accent-color:#F97316;flex:none}
@@ -65,6 +68,7 @@ export function startImportant(me, profiles) {
         : { id: 'pv-' + sid, sender_id: sid, body: texts[0], photo_path: null, parent_id: null, created_at: at });
     });
   }
+  const knownIds = new Set();
   let ov = null, view = 'list', curSender = null, shownIds = '', busy = false, photoBlob = null, photoUrl = null, unread = [];
 
   const close = () => { if (ov) { ov.remove(); ov = null; document.body.style.overflow = ''; } view = 'list'; curSender = null; shownIds = ''; };
@@ -75,8 +79,8 @@ export function startImportant(me, profiles) {
     return ov;
   };
   const frame = (inner, back) => {
-    ensure().innerHTML = `<div class="impbox"><div class="imphead">${back ? '<button class="impback" id="impBack" type="button">חזרה</button>' : ''}<span class="impbell">${icon('bell', 28)}</span><span>הודעה חשובה</span></div><div class="impbody" id="impBody">${inner}</div></div>`;
-    ov.querySelector('#impBack')?.addEventListener('click', () => { view = 'list'; curSender = null; shownIds = ''; renderList(); });
+    ensure().innerHTML = `<div class="impbox"><div class="imphead">${back ? `<button class="impback" id="impBack" type="button">${back === 'close' ? 'סגור' : 'חזרה'}</button>` : ''}<span class="impbell">${icon('bell', 28)}</span><span>הודעה חשובה</span></div><div class="impbody" id="impBody">${inner}</div></div>`;
+    ov.querySelector('#impBack')?.addEventListener('click', () => { if (back === 'close') { close(); check(true); return; } view = 'list'; curSender = null; shownIds = ''; renderList(); });
     return ov.querySelector('#impBody');
   };
 
@@ -188,11 +192,97 @@ export function startImportant(me, profiles) {
     $('impSave').onclick = () => finish('save');
   }
 
+  /* שיחה עם משתמש אחד: ההודעות ביניכם, ותיבת תשובה להמשך. נפתחת גם מהודעות שמורות */
+  async function openThread(otherId, keepText) {
+    if (preview || !otherId || otherId === me.id) return;
+    const { data, error } = await supabase.from('important_msgs').select('id,sender_id,to_users,body,photo_path,parent_id,kind,items,hidden_by,created_at').order('created_at', { ascending: false }).limit(80);
+    if (error) { showToast('לא הצלחנו לטעון את השיחה', true); return; }
+    const msgs = (data || []).filter(m => !(m.hidden_by || []).includes(me.id)).filter(m => (m.sender_id === otherId && (m.to_users || []).includes(me.id)) || (m.sender_id === me.id && (m.to_users || []).includes(otherId)))
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).slice(-30);
+    if (!msgs.length) { if (ov) { close(); check(true); } else showToast('אין הודעות בשיחה'); return; }
+    const urls = await signedUrls(msgs.map(m => m.photo_path));
+    const listIds = msgs.filter(m => m.kind === 'list' && m.sender_id === otherId).map(m => m.id);
+    const rds = listIds.length ? ((await supabase.from('important_reads').select('msg_id,checked').in('msg_id', listIds).eq('user_id', me.id)).data || []) : [];
+    const chk = id => rds.find(r => r.msg_id === id)?.checked || [];
+    const keep = keepText ? ov?.querySelector('#impText')?.value || '' : '';
+    view = 'thread'; curSender = otherId; shownIds = msgs.map(m => m.id).join(',');
+    const p = byId[otherId];
+    const lastFromOther = [...msgs].reverse().find(m => m.sender_id === otherId);
+    const body = frame(`<div class="impwhohead">${avatar(p, 60)}<div><b>${esc(p?.name || 'מישהו')}</b><small>השיחה ביניכם</small></div></div>
+      ${msgs.map(m => {
+        const mine = m.sender_id === me.id;
+        const list = m.kind === 'list' && Array.isArray(m.items) ? `<div class="implist" data-m="${m.id}">${m.items.map((t, i) => mine
+          ? `<div class="impitem" style="cursor:default"><span>• ${esc(t)}</span></div>`
+          : `<label class="impitem"><input type="checkbox" data-i="${i}" ${chk(m.id).includes(i) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>` : '';
+        return `<div class="impmsg ${mine ? 'impme' : ''}"><time>${mine ? 'אני · ' : ''}${impWhen(m.created_at)} <button class="impdel" type="button" data-hide="${m.id}">מחק</button></time>
+          ${m.photo_path && urls[m.photo_path] ? `<img class="impimg" src="${urls[m.photo_path]}" alt="תמונה">` : ''}
+          ${m.body ? `<p>${esc(m.body)}</p>` : ''}${list}</div>`;
+      }).join('')}
+      <div class="impreply">
+        <textarea id="impText" maxlength="1000" placeholder="כתבו תשובה ל${esc(p?.name || '')}...">${esc(keep)}</textarea>
+        <div class="imptools">
+          <button class="imptool" id="impCam" type="button">${icon('camera', 20)} צילום</button>
+          <button class="imptool" id="impGal" type="button">${icon('image', 20)} תמונה</button>
+          <span id="impPv"></span>
+        </div>
+        <input type="file" id="impFileC" accept="image/*" capture="environment" hidden>
+        <input type="file" id="impFileG" accept="image/*" hidden>
+        <button class="impbtn" id="impSend" type="button">שליחת תשובה</button>
+        <button class="impbtn alt" id="impDelAll" type="button" style="margin-top:12px;color:#B91C1C;border-color:#EF4444">מחק את כל השיחה אצלי</button>
+      </div>`, 'close');
+    const $ = id => ov.querySelector('#' + id);
+    const showPv = () => { $('impPv').innerHTML = photoUrl ? `<span class="imppv"><img src="${photoUrl}" alt=""><button type="button" id="impRm" aria-label="הסרה">×</button></span>` : ''; $('impRm')?.addEventListener('click', () => { photoBlob = null; photoUrl = null; showPv(); }); };
+    showPv();
+    body.scrollTop = body.scrollHeight;
+    body.querySelectorAll('.impimg').forEach(im => im.onclick = () => { const z = document.createElement('div'); z.className = 'impzoom'; z.innerHTML = `<img src="${im.src}" alt="">`; z.onclick = () => z.remove(); document.body.append(z); });
+    body.querySelectorAll('.implist').forEach(box => box.addEventListener('change', () => {
+      const arr = [...box.querySelectorAll('input')].map((x, i) => x.checked ? i : -1).filter(i => i >= 0);
+      supabase.from('important_reads').upsert({ msg_id: box.dataset.m, user_id: me.id, checked: arr }, { onConflict: 'msg_id,user_id' }).then(() => {}, () => {});
+    }));
+    const hide = async ids => { const r = await supabase.rpc('hide_important', { ids }); if (r.error) { showToast('המחיקה נכשלה', true); return false; } return true; };
+    body.querySelectorAll('[data-hide]').forEach(b => b.onclick = async () => { if (confirm('למחוק את ההודעה אצלך? אצל הצד השני היא תישאר.') && await hide([b.dataset.hide])) { showToast('ההודעה נמחקה'); await openThread(otherId, true); } });
+    $('impDelAll').onclick = async () => { if (confirm('למחוק את כל השיחה אצלך? אצל הצד השני היא תישאר.') && await hide(msgs.map(m => m.id))) { showToast('השיחה נמחקה'); close(); check(true); } };
+    $('impCam').onclick = () => $('impFileC').click(); $('impGal').onclick = () => $('impFileG').click();
+    for (const id of ['impFileC', 'impFileG']) $(id).onchange = async e => {
+      const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+      try { photoBlob = await shrinkImage(f); photoUrl = URL.createObjectURL(photoBlob); showPv(); } catch (_) { showToast('התמונה לא נטענה', true); }
+    };
+    $('impSend').onclick = async () => {
+      if (busy) return;
+      const txt = $('impText').value.trim();
+      if (!txt && !photoBlob) { showToast('כתבו תשובה או צרפו תמונה', true); return; }
+      busy = true; $('impSend').disabled = true;
+      try {
+        let path = null;
+        if (photoBlob) {
+          path = `reports/${me.id}/imp-${crypto.randomUUID()}.jpg`;
+          const up = await supabase.storage.from('photos').upload(path, photoBlob, { contentType: 'image/jpeg', upsert: false });
+          if (up.error) throw new Error('upload');
+        }
+        const ins = await supabase.from('important_msgs').insert({ to_users: [otherId], body: txt || null, photo_path: path, parent_id: lastFromOther?.id || null });
+        if (ins.error) throw new Error('send');
+        const pend = unread.filter(u => u.sender_id === otherId).map(u => u.id);
+        if (pend.length) await supabase.from('important_reads').upsert(pend.map(id => ({ msg_id: id, user_id: me.id, done: true })), { onConflict: 'msg_id,user_id' });
+        photoBlob = null; photoUrl = null;
+        const r = await supabase.rpc('my_unread_important'); if (!r.error) unread = r.data || [];
+        showToast('התשובה נשלחה');
+        busy = false; await openThread(otherId);
+      } catch (_) { busy = false; showToast('השליחה נכשלה, נסו שוב', true); const s = ov?.querySelector('#impSend'); if (s) s.disabled = false; }
+    };
+  }
+  window.__imp = { openThread: id => openThread(id) };
+
   async function check(force) {
     if (busy) return;
     const { data, error } = preview ? { data: pvUnread, error: null } : await supabase.rpc('my_unread_important');
     if (error) return;
     unread = data || [];
+    { const fresh = unread.filter(u => !knownIds.has(u.id)); unread.forEach(u => knownIds.add(u.id)); if (fresh.length && !preview) playChime(); }
+    if (view === 'thread' && curSender) {
+      const ids = unread.filter(u => u.sender_id === curSender).map(u => u.id);
+      if (ids.some(id => !shownIds.split(',').includes(id))) openThread(curSender, true);   // הגיעה הודעה חדשה תוך כדי שיחה
+      return;
+    }
     if (!unread.length) { close(); return; }
     if (view === 'conv' && curSender) {
       const ids = unread.filter(u => u.sender_id === curSender).map(u => u.id).join(',');

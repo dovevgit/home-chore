@@ -104,6 +104,22 @@ export function avatar(p, size = 36) {
   return `<span class="avatar" title="${esc(p.name)}" style="width:${size}px;height:${size}px;border-color:${border};font-size:${Math.round(size * 0.46)}px">${inner}</span>`;
 }
 
+/* צליל התראה בתוך האפליקציה (נוצר בקוד, בלי קובץ). דפדפנים דורשים נגיעה אחת במסך כדי לאפשר צליל */
+let _ac = null;
+const acOf = () => { try { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; _ac = _ac || new AC(); if (_ac.state === 'suspended') _ac.resume(); return _ac; } catch (_) { return null; } };
+export function playChime() {
+  try { if (localStorage.getItem('soundOff') === '1') return; } catch (_) {}
+  const ac = acOf(); if (!ac) return;
+  const t = ac.currentTime;
+  [[880, 0], [1175, 0.17]].forEach(([f, d]) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.35, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.4);
+    o.connect(g); g.connect(ac.destination); o.start(t + d); o.stop(t + d + 0.45);
+  });
+}
+['pointerdown', 'touchstart', 'keydown'].forEach(ev => addEventListener(ev, () => acOf(), { once: true, passive: true }));
+
 /* כתובות חתומות יציבות: נשמרות במכשיר עד 6 ימים, כך שהדפדפן לא מוריד שוב ושוב את אותה תמונה */
 export async function signedUrls(paths) {
   const out = {}; const now = Date.now(); let cache = {};
