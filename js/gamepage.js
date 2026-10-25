@@ -117,7 +117,14 @@ function computeKey() {
 
 function build(key) {
   const r = ST?.room, host = r && r.host_id === me.id;
-  const set = (html, after) => { viewKey = key; clearInterval(cnt); cnt = null; G.innerHTML = html; if (after) after(); };
+  const set = (html, after) => {
+    viewKey = key; clearInterval(cnt); cnt = null; G.innerHTML = html; if (after) after();
+    // כפתור הזמנת אורח זמין בכל מסך של משחק פתוח, לבני משפחה שמשתתפים בו
+    if (!GT && r && ST?.me?.status === 'joined' && !['final'].includes(r.status) && !$('#gGuest')) {
+      G.insertAdjacentHTML('beforeend', '<button class="gbtn ghost" id="gGuest" type="button" style="margin-top:4px">הזמן אורח בקישור</button>');
+      bind('#gGuest', () => inviteGuest('game'));
+    }
+  };
   const bind = (id, fn) => { const e = $(id); if (e) e.onclick = fn; };
 
   if (key.startsWith('none')) {
@@ -125,8 +132,11 @@ function build(key) {
     set(`${head()}<div class="gcard main"><p class="gsub">אין משחק פתוח עכשיו</p>
       ${isGiver ? `<div class="gprize"><label for="gPrize">פרס למנצח הכללי (בנקודות)</label><input id="gPrize" type="number" inputmode="numeric" min="0" max="1000" placeholder="ריק = משחק בלי פרס"></div>` : ''}
       <p class="ghint">פותחים משחק, וכל המשפחה מקבלת הזמנה</p>
-      <button class="gbtn go" id="gOpen" type="button">פתח משחק והזמן את המשפחה</button></div>`);
-    bind('#gOpen', () => act('game_open', { p_prize: isGiver ? Math.max(0, Math.min(1000, parseInt($('#gPrize')?.value) || 0)) : 0 }));
+      <button class="gbtn go" id="gOpen" type="button">פתח משחק והזמן את המשפחה</button>
+      <button class="gbtn ghost" id="gOpenP" type="button">משחק פרטי: רק לאורחים שמקבלים קישור</button></div>`);
+    const prizeVal = () => isGiver ? Math.max(0, Math.min(1000, parseInt($('#gPrize')?.value) || 0)) : 0;
+    bind('#gOpen', () => act('game_open', { p_prize: prizeVal(), p_private: false }));
+    bind('#gOpenP', () => act('game_open', { p_prize: prizeVal(), p_private: true }, () => inviteGuest('game')));
     return;
   }
   if (key === 'tie') {
@@ -162,9 +172,7 @@ function build(key) {
     set(`${head()}<div class="gcard main"><p class="gsub">${nm(r.host_id)} פתח/ה משחק. מי שמצטרף נכנס!</p>
       ${playersRow(joined.concat(pend), tags)}${prizeBadge(r)}
       ${host ? `<button class="gbtn go" id="gStart" type="button">התחל משחק</button><button class="gbtn ghost" id="gClose" type="button">סגירת המשחק</button>`
-             : `<p class="ghint">מחכים שהמנהל יתחיל</p><button class="gbtn ghost" id="gLeave" type="button">יציאה מהמשחק</button>`}
-      ${GT ? '' : '<button class="gbtn ghost" id="gGuest" type="button">הזמן אורח בקישור</button>'}</div>`);
-    bind('#gGuest', () => inviteGuest('game'));
+             : `<p class="ghint">מחכים שהמנהל יתחיל</p><button class="gbtn ghost" id="gLeave" type="button">יציאה מהמשחק</button>`}</div>`);
     bind('#gStart', () => { sfx.start(); act('game_start_round', { p_room: roomId }); });
     bind('#gClose', () => act('game_close', { p_room: roomId }));
     bind('#gLeave', () => act('game_leave', { p_room: roomId }));
