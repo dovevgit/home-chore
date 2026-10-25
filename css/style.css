@@ -309,3 +309,6 @@ button.avn{background:none;border:0;font:inherit;color:inherit;cursor:pointer;pa
 .drawer-panel a.admin-link:hover{background:linear-gradient(135deg,#FFDA80,#F8AE1A)}
 .drawer-panel a.admin-link svg{color:#5A2A00}
 .drawer-sep{border:0;height:1px;background:#E5EAF0;margin:4px 6px 2px;width:calc(100% - 12px)}
+
+.drawer-panel a.imp-link{background:#FFF1DD;color:#9A3412;font-weight:800;border:2px solid #FF8A00}
+.drawer-panel a.imp-link svg{color:#F97316}
