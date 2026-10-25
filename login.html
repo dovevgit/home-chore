@@ -19,8 +19,8 @@
 <div class="hero"><img class="logo" src="logo.png" alt="הבית שלנו - משימות הבית, ביחד ובקלות"></div>
 <form class="card login-card" id="form" novalidate>
   <h2>ברוכים הבאים</h2>
-  <label for="email">אימייל</label>
-  <input id="email" type="email" autocomplete="username" inputmode="email" dir="ltr" placeholder="name@example.com" required>
+  <label for="email">שם משתמש</label>
+  <input id="email" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="השם שלך" required>
   <label for="password">סיסמה</label>
   <input id="password" type="password" autocomplete="current-password" dir="ltr" placeholder="הסיסמה שלך" required>
   <button class="btn" id="submit" type="submit">התחברות</button>
@@ -33,6 +33,13 @@ import { supabase } from './js/supabase.js';
 const { data } = await supabase.auth.getSession();
 if (data.session) location.replace('index.html');
 
+// שם משתמש -> כתובת פנימית (Supabase דורש אימייל). מי שכותב כתובת עם @ נכנס כרגיל.
+function toEmail(v) {
+  v = v.trim().normalize('NFC').toLowerCase();
+  if (v.includes('@')) return v;
+  const hex = Array.from(new TextEncoder().encode(v)).map(b => b.toString(16).padStart(2, '0')).join('');
+  return 'u' + hex + '@habayit.app';
+}
 const form = document.getElementById('form');
 const btn = document.getElementById('submit');
 const err = document.getElementById('error');
@@ -41,11 +48,11 @@ form.addEventListener('submit', async (e) => {
   err.textContent = '';
   btn.disabled = true; btn.textContent = 'מתחבר...';
   const { error } = await supabase.auth.signInWithPassword({
-    email: document.getElementById('email').value.trim(),
+    email: toEmail(document.getElementById('email').value),
     password: document.getElementById('password').value
   });
   if (error) {
-    err.textContent = 'אימייל או סיסמה שגויים';
+    err.textContent = 'שם משתמש או סיסמה שגויים';
     btn.disabled = false; btn.textContent = 'התחברות';
   } else {
     location.replace('index.html');
