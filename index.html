@@ -20,6 +20,7 @@
   <div id="announce"></div>
   <div id="bday"></div>
   <div id="outBar"></div>
+  <div id="pushBar"></div>
   <div id="shopBar"></div>
   <div id="leader"></div>
   <div class="card" style="margin-bottom:8px"><div class="sec-title" style="margin:0">סיכום היום</div>
@@ -40,7 +41,7 @@
 </main>
 <div class="modal hidden" id="pmodal"><div class="modal-card" id="pcard"></div></div>
 <script type="module">
-import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, pointsFor, ilDate, ilTime, addDays, reportCounts, deriveStatus, nextSlot, STATUS, signedUrls } from './js/common.js';
+import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, pointsFor, ilDate, ilTime, addDays, reportCounts, deriveStatus, nextSlot, STATUS, signedUrls, playChime, showToast } from './js/common.js';
 import { weeklyPoints } from './js/points.js';
 import { showOutDetails } from './js/outings.js';
 const { me, profiles } = await initPage({ active: 'home', title: 'הבית שלנו' });
@@ -188,11 +189,14 @@ else {
 
 /* --- הודעות: תג שלא נקראו, רשימה ושורת כתיבה --- */
 document.getElementById('qsend').innerHTML = icon('send', 22);
+let lastFeed = null;
 async function loadFeed() {
   const { data: feed, error: fErr } = await supabase.from('feed').select('id,type,user_id,body,photo_path,created_at').in('type', ['system', 'chat']).order('created_at', { ascending: false }).limit(4);
   const fEl = document.getElementById('feed');
   if (fErr) { fEl.innerHTML = '<p class="empty">לא הצלחנו לטעון הודעות</p>'; return; }
   if (!feed.length) { fEl.innerHTML = '<p class="empty">אין הודעות עדיין. כתבו הודעה ראשונה!</p>'; return; }
+  if (lastFeed && feed[0].id !== lastFeed && feed[0].type === 'chat' && feed[0].user_id !== me?.id) playChime();
+  lastFeed = feed[0].id;
   fEl.innerHTML = feed.slice().reverse().map(m => m.type === 'system'
     ? `<div class="sys"><small>הודעת מערכת · ${ilTime(new Date(m.created_at))}</small>${esc(m.body)}</div>`
     : `<div class="msg ${m.user_id === me?.id ? 'mine' : ''}">${avatar(byId[m.user_id], 34)}
@@ -207,6 +211,21 @@ async function loadFeed() {
   const txt = (an?.value || '').trim();
   document.getElementById('announce').innerHTML = txt ? `<div class="announce"><span class="trophy"><svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><defs><linearGradient id="gld" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE98A"/><stop offset=".5" stop-color="#FFC21A"/><stop offset="1" stop-color="#E08A00"/></linearGradient></defs><path d="M17 8h30v14c0 9-6.5 16-15 16S17 31 17 22z" fill="url(#gld)" stroke="#B86E00" stroke-width="2" stroke-linejoin="round"/><path d="M17 12H8c0 9 4 15 11 16M47 12h9c0 9-4 15-11 16" fill="none" stroke="#D98A00" stroke-width="3.5" stroke-linecap="round"/><path d="M28 37h8l1 9H27z" fill="url(#gld)" stroke="#B86E00" stroke-width="2" stroke-linejoin="round"/><rect x="20" y="46" width="24" height="8" rx="2.5" fill="url(#gld)" stroke="#B86E00" stroke-width="2"/><path d="M32 13l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5-3.6-3.5 5-.7z" fill="#FFF7D1" opacity=".9"/><path d="M22 12v10" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".55"/></svg></span><b>${esc(txt)}</b></div>` : '';
 })();
+/* הצעה להפעיל התראות לטלפון (פעם ב-3 ימים, עד שמפעילים) */
+import('./js/push.js').then(async P => {
+  let off = 0; try { off = Number(localStorage.getItem('pushBarOff') || 0); } catch (_) {}
+  if (Date.now() < off || (await P.pushState()) !== 'off') return;
+  const bar = document.getElementById('pushBar');
+  bar.innerHTML = `<div class="card" style="border:3px solid #FF8A00;background:#FFF7ED;margin-bottom:12px;padding:12px;text-align:center">
+    <b style="color:#9A3412;font-size:18px">${icon('bell', 20)} רוצים לקבל הודעות גם כשהאפליקציה סגורה?</b>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" id="pushOn" type="button" style="flex:2;margin:0">הפעל התראות</button>
+    <button class="btn secondary" id="pushLater" type="button" style="flex:1;margin:0">אחר כך</button></div></div>`;
+  document.getElementById('pushLater').onclick = () => { try { localStorage.setItem('pushBarOff', String(Date.now() + 3 * 864e5)); } catch (_) {} bar.innerHTML = ''; };
+  document.getElementById('pushOn').onclick = async () => {
+    try { await P.enablePush(me.id); bar.innerHTML = ''; showToast('ההתראות הופעלו במכשיר הזה'); }
+    catch (e) { showToast(e.message === 'denied' ? 'לא אושרו התראות' : 'ההפעלה נכשלה, נסו שוב', true); }
+  };
+}).catch(() => {});
 document.getElementById('reqIcon').innerHTML = icon('hand-heart', 28);
 async function loadReqBadge() {
   const { data } = await supabase.from('requests').select('id,created_by,to_users,status,declined_by').in('status', ['open', 'taken']);
