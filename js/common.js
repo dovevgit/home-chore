@@ -186,7 +186,7 @@ export async function initPage({ active = '', title = '', back = null, menu = tr
       };
       b.addEventListener('click', async () => {
         if (b.dataset.st !== 'off') return;
-        try { await P.enablePush(session.user.id); showToast('ההתראות הופעלו במכשיר הזה'); } catch (e) { showToast(e.message === 'denied' ? 'לא אושרו התראות' : 'ההפעלה נכשלה, נסו שוב', true); }
+        try { await P.enablePush(session.user.id); showToast('ההתראות הופעלו במכשיר הזה'); } catch (e) { showToast((e.message === 'denied' ? 'לא אושרו התראות' : 'ההפעלה נכשלה') + (e.detail ? ': ' + e.detail : ''), true); }
         draw();
       });
       draw();

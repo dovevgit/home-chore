@@ -19,15 +19,22 @@ export async function enablePush(userId) {
   if (!pushSupported()) throw new Error('unsupported');
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') throw new Error('denied');
+  const fail = (m, d) => { const e = new Error(m); e.detail = d; return e; };
   const { data, error } = await supabase.functions.invoke('push', { body: { action: 'key' } });
-  if (error || !data?.publicKey) throw new Error('key');
-  const reg = await swReady();
-  const old = await reg.pushManager.getSubscription();
-  if (old) { try { await old.unsubscribe(); } catch (_) {} }
-  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(data.publicKey) });
+  if (error || !data?.publicKey) {
+    let body = ''; try { body = error?.context ? (await error.context.text()).slice(0, 120) : ''; } catch (_) {}
+    throw fail('key', `שלב מפתח: ${error?.context?.status || ''} ${error?.message || 'אין מפתח'} ${body}`.trim());
+  }
+  let reg; try { reg = await swReady(); } catch (_) { throw fail('sw', 'שלב Service Worker: לא מוכן'); }
+  let sub;
+  try {
+    const old = await reg.pushManager.getSubscription();
+    if (old) { try { await old.unsubscribe(); } catch (_) {} }
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(data.publicKey) });
+  } catch (err) { throw fail('subscribe', `שלב רישום: ${err.name} ${err.message}`.slice(0, 160)); }
   const j = sub.toJSON();
   const { error: e2 } = await supabase.from('push_subs').upsert({ user_id: userId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: 'endpoint' });
-  if (e2) throw new Error('save');
+  if (e2) throw fail('save', `שלב שמירה: ${e2.message}`.slice(0, 160));
 }
 
 export async function sendTestPush() {
