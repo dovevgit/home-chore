@@ -1,11 +1,20 @@
 import { initPage, supabase, esc, avatar, showToast } from './common.js';
+import { guestToken, guestMode, inviteGuest } from './guest.js';
 import { legalMoves, applyMove, colorOf, counts } from './checkers-rules.js';
 
-const { session, profiles } = await initPage({ active: 'games', title: 'דמקה' });
-const me = (profiles || []).find(p => p.id === session.user.id) || { id: session.user.id, name: '' };
-const byId = Object.fromEntries((profiles || []).map(p => [p.id, p]));
+const GT = guestToken();
+let profiles = [], me, gid = new URLSearchParams(location.search).get('g'), gcall = null;
+if (GT) { const g = await guestMode('checkers', GT); me = g.me; gid = g.ref; gcall = g.call; }
+else {
+  const r = await initPage({ active: 'games', title: 'דמקה' });
+  profiles = r.profiles || [];
+  me = profiles.find(p => p.id === r.session.user.id) || { id: r.session.user.id, name: '' };
+}
+const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
+byId[me.id] = byId[me.id] || me;
 const root = document.getElementById('ck');
-const gid = new URLSearchParams(location.search).get('g');
+// קריאה לשרת: אורח עובר דרך guest_call, בן משפחה ישירות
+const call = (fn, args) => GT ? gcall(fn, args) : supabase.rpc(fn, args);
 const CROWN = '<svg viewBox="0 0 24 24"><path d="M3 18h18l1-10-5 4-5-8-5 8-5-4z" fill="#FFC93C" stroke="#B07A00" stroke-width="1.2" stroke-linejoin="round"/></svg>';
 
 const RULES = `<details class="ckcard ckrules"><summary>איך משחקים דמקה? (החוקים)</summary>
@@ -42,6 +51,7 @@ const sWin = () => [523, 659, 784, 1047].forEach((f, i) => beep(f, .2, 'triangle
 async function showList() {
   const { data: games } = await supabase.from('checkers_games').select('*').order('updated_at', { ascending: false }).limit(30);
   const mine = games || [];
+  await learn(mine);
   const active = mine.filter(g => g.status === 'invite' || g.status === 'play');
   const busyWith = new Set(active.map(g => g.white_id === me.id ? g.black_id : g.white_id));
   const others = (profiles || []).filter(p => p.is_user !== false && p.id !== me.id);
@@ -60,8 +70,10 @@ async function showList() {
     <div class="ckcard"><h3>משחק חדש. עם מי משחקים?</h3><div class="ckpick">
       ${others.map(p => `<button class="ckp" data-id="${p.id}" type="button" ${busyWith.has(p.id) ? 'disabled style="opacity:.4"' : ''}>${avatar(p, 52)}${esc(p.name)}</button>`).join('') || '<p class="ckempty">אין עוד שחקנים</p>'}
     </div></div>
+    <div class="ckcard"><h3>חבר שהוא לא מהמשפחה?</h3><button class="ckbtn" id="bGuest" type="button">הזמן אורח בקישור</button></div>
     ${active.length ? `<div class="ckcard"><h3>משחקים פעילים</h3>${active.map(row).join('')}</div>` : ''}
     ${done.length ? `<div class="ckcard"><h3>משחקים אחרונים</h3>${done.map(row).join('')}</div>` : ''}${RULES}`;
+  document.getElementById('bGuest').onclick = () => inviteGuest('checkers', d => { location.href = 'checkers.html?g=' + d.ref; });
   root.querySelectorAll('.ckp:not([disabled])').forEach(b => b.onclick = async () => {
     b.disabled = true;
     const { data, error } = await supabase.rpc('checkers_invite', { p_opp: b.dataset.id });
@@ -70,11 +82,26 @@ async function showList() {
   });
 }
 
+// שמות של שחקנים שאינם ברשימה הרגילה (אורחים)
+async function learn(games) {
+  const miss = [...new Set(games.flatMap(g => [g.white_id, g.black_id]))].filter(id => id && !byId[id]);
+  if (!miss.length) return;
+  const { data } = await supabase.from('profiles').select('id,name,color').in('id', miss);
+  (data || []).forEach(p => { byId[p.id] = p; });
+}
+
 /* ================= משחק ================= */
 let G = null, sel = [], lastKey = '', busy = false;
 
 async function load() {
-  const { data } = await supabase.from('checkers_games').select('*').eq('id', gid).maybeSingle();
+  let data = null;
+  if (GT) {
+    const r = await gcall('checkers_state', {});
+    data = r.data && r.data.game; if (data) { byId[data.white_id] = byId[data.white_id] || { id: data.white_id, name: r.data.white_name }; }
+  } else {
+    ({ data } = await supabase.from('checkers_games').select('*').eq('id', gid).maybeSingle());
+    if (data) await learn([data]);
+  }
   if (!data) { root.innerHTML = '<p class="ckempty">המשחק לא נמצא</p><a class="ckbtn g" style="display:block;text-align:center;text-decoration:none" href="checkers.html">חזרה</a>'; return; }
   const key = [data.status, data.board, data.turn, data.draw_offer, data.updated_at].join('|');
   const prev = G; G = data;
@@ -124,12 +151,12 @@ function render() {
   else if (g.status === 'play') {
     if (g.draw_offer && g.draw_offer !== me.id) btns = `<button class="ckbtn ok" id="bDrawYes" type="button">מאשר/ת תיקו</button><button class="ckbtn g" id="bDrawNo" type="button">לא</button>`;
     else btns = `<button class="ckbtn g" id="bDraw" type="button" ${g.draw_offer === me.id ? 'disabled' : ''}>${g.draw_offer === me.id ? 'הצעת תיקו נשלחה' : 'הצע תיקו'}</button><button class="ckbtn r" id="bResign" type="button">ויתור</button>`;
-  } else btns = `<a class="ckbtn" style="text-align:center;text-decoration:none" href="checkers.html">למשחקים</a>`;
+  } else btns = GT ? '<p class="ckmsg">תודה ששיחקת!</p>' : `<a class="ckbtn" style="text-align:center;text-decoration:none" href="checkers.html">למשחקים</a>`;
 
   root.innerHTML = `${bar(oppId, false)}<div class="ckboard" id="bd">${cells}</div>${bar(me.id, true)}<div class="ckmsg">${msg}</div><div class="ckbtns">${btns}</div>${RULES}`;
   root.querySelectorAll('.cks').forEach(el => el.onclick = () => tap(+el.dataset.i));
   const $ = id => document.getElementById(id);
-  const rpc = async (fn, args) => { if (busy) return; busy = true; const { error } = await supabase.rpc(fn, args); busy = false; if (error) showToast('הפעולה נכשלה', true); await load(); };
+  const rpc = async (fn, args) => { if (busy) return; busy = true; const { error } = await call(fn, args); busy = false; if (error) showToast('הפעולה נכשלה', true); await load(); };
   if ($('bCancel')) $('bCancel').onclick = () => rpc('checkers_resign', { p_game: gid });
   if ($('bYes')) $('bYes').onclick = () => rpc('checkers_respond', { p_game: gid, p_accept: true });
   if ($('bNo')) $('bNo').onclick = async () => { await rpc('checkers_respond', { p_game: gid, p_accept: false }); location.href = 'checkers.html'; };
@@ -168,7 +195,7 @@ async function tap(i) {
   (done.captured.length ? sCap : sMove)();
   G = { ...g, board, turn: oppCol, last_path: path, quiet, draw_offer: null, status: result ? 'done' : 'play', winner: result === 'win' ? me.id : null, result };
   sel = []; render();
-  const { error } = await supabase.rpc('checkers_move', { p_game: gid, p_board: board, p_path: path, p_quiet: quiet, p_result: result });
+  const { error } = await call('checkers_move', { p_game: gid, p_board: board, p_path: path, p_quiet: quiet, p_result: result });
   busy = false;
   if (error) showToast('המהלך לא נשמר. נסו שוב', true);
   else if (result === 'win') sWin();
@@ -180,5 +207,5 @@ if (!gid) await showList();
 else {
   await load();
   setInterval(() => { if (!busy) load(); }, 3500);
-  supabase.channel('ck-' + gid).on('postgres_changes', { event: '*', schema: 'public', table: 'checkers_games', filter: 'id=eq.' + gid }, () => { if (!busy) load(); }).subscribe();
+  if (!GT) supabase.channel('ck-' + gid).on('postgres_changes', { event: '*', schema: 'public', table: 'checkers_games', filter: 'id=eq.' + gid }, () => { if (!busy) load(); }).subscribe();
 }

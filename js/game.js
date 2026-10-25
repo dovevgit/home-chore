@@ -49,9 +49,9 @@ export function startGame(me, profiles) {
       const pend = cur && cur.host_id === me.id ? (cur.pending || []) : [];
       document.querySelectorAll('[id^="gJoin-"]').forEach(e => { if (!pend.some(p => 'gJoin-' + p.user_id === e.id)) e.remove(); });
       pend.forEach(p => {
-        const u = byId[p.user_id], id = 'gJoin-' + p.user_id;
+        const u = byId[p.user_id] || { id: p.user_id, name: p.name }, id = 'gJoin-' + p.user_id;
         const m = popup(id, `<div style="display:grid;place-items:center">${avatar(u, 84)}</div>
-          <h2 style="margin:12px 0 4px;color:#4B3DB8">${esc(u?.name || 'מישהו')} הצטרף/ה למשחק</h2>
+          <h2 style="margin:12px 0 4px;color:#4B3DB8">${esc(u?.name || p.name || 'מישהו')} הצטרף/ה למשחק</h2>
           <p style="margin:0 0 6px">לאשר שיצטרף/ה? מי שמאושר באמצע סבב מתחיל מהסבב הבא.</p>
           ${btn(id + 'y', 'אשר')}${btn(id + 'n', 'דחה', true)}`);
         if (m) {

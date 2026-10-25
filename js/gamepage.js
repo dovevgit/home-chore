@@ -1,4 +1,5 @@
 import { initPage, supabase, esc, avatar, showToast } from './common.js';
+import { guestToken, guestMode, inviteGuest } from './guest.js';
 
 const ICO={
  'חי':`<svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true"><path d="M10 26 L14 6 L28 17Z" fill="#FF9F43"/><path d="M54 26 L50 6 L36 17Z" fill="#FF9F43"/><path d="M13 14 L15 9 L22 15Z" fill="#FFC9A0"/><path d="M51 14 L49 9 L42 15Z" fill="#FFC9A0"/><ellipse cx="32" cy="37" rx="24" ry="21" fill="#FFB35C"/><ellipse cx="32" cy="46" rx="11" ry="8" fill="#FFE2C2"/><circle cx="23" cy="34" r="4" fill="#2B2A4C"/><circle cx="41" cy="34" r="4" fill="#2B2A4C"/><circle cx="24.4" cy="32.6" r="1.4" fill="#fff"/><circle cx="42.4" cy="32.6" r="1.4" fill="#fff"/><path d="M29 41 h6 l-3 3.4z" fill="#E8567A"/><path d="M32 44.4 v2.2 M32 46.6 q-3 3 -6 1 M32 46.6 q3 3 6 1" stroke="#2B2A4C" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M8 40 h10 M8 45 l9 -2 M56 40 h-10 M56 45 l-9 -2" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><circle cx="16" cy="43" r="4" fill="#FF8FA3" opacity=".55"/><circle cx="48" cy="43" r="4" fill="#FF8FA3" opacity=".55"/></svg>`,
@@ -9,8 +10,15 @@ const ICO={
  'מקצוע':`<svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true"><defs><mask id="wm"><rect width="64" height="64" fill="#fff"/><rect x="26" y="0" width="12" height="19" rx="2" fill="#000"/></mask></defs><g transform="rotate(35 32 32)"><rect x="27" y="28" width="10" height="33" rx="5" fill="#9FB4C7"/><rect x="27" y="44" width="10" height="17" rx="5" fill="#14B8A6"/><circle cx="32" cy="19" r="15" fill="#B7C8D8" mask="url(#wm)"/><path d="M19 17 a13 13 0 0 1 5 -9" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".7"/><circle cx="26.5" cy="26" r="2.2" fill="#2B2A4C"/><circle cx="37.5" cy="26" r="2.2" fill="#2B2A4C"/><path d="M28.5 30.5 q3.5 3 7 0" stroke="#2B2A4C" stroke-width="1.8" fill="none" stroke-linecap="round"/></g></svg>`
 };
 const CATS = [['חי', '--c-animal'], ['צומח', '--c-plant'], ['דומם', '--c-thing'], ['ארץ', '--c-country'], ['עיר', '--c-city'], ['מקצוע', '--c-job']];
-const { me, profiles } = await initPage({ title: 'חי צומח דומם', back: 'index.html' });
+const GT = guestToken();
+let me, profiles = [], gcall = null, gref = null;
+if (GT) { const x = await guestMode('game', GT); me = x.me; gcall = x.call; gref = x.ref; }
+else { const x = await initPage({ title: 'חי צומח דומם', back: 'index.html' }); me = x.me; profiles = x.profiles; }
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
+if (GT) byId[me.id] = me;
+// שמות של שחקנים שאינם ברשימה הרגילה (אורחים)
+const learnNames = st => (st?.players || []).forEach(p => { if (p.name && !byId[p.user_id]) byId[p.user_id] = { id: p.user_id, name: p.name, color: '#8E8EA8' }; });
+const isGuestId = id => !!ST?.players?.find(p => p.user_id === id && p.guest);
 const $ = s => document.querySelector(s);
 const G = $('#gm');
 const nm = id => esc(byId[id]?.name || 'מישהו');
@@ -52,10 +60,10 @@ function confetti(n = 90) {
 }
 
 /* ---- מצב ---- */
-let roomId = null, ST = null, off = 0, viewKey = '', cnt = null, mySub = false, subRound = -1, ticked = '', lastLow = -1, TIE = null, isGiver = false, errMsg = '';
+let roomId = GT ? gref : null, ST = null, off = 0, viewKey = '', cnt = null, mySub = false, subRound = -1, ticked = '', lastLow = -1, TIE = null, isGiver = false, errMsg = '';
 const sNow = () => Date.now() + off;
 const head = () => `<h1 class="gh1"><span>חי</span> <span>צומח</span> <span>דומם</span></h1><div class="gtag">משחק המשפחה</div>`;
-const rpc = async (fn, args) => { const { data, error } = await supabase.rpc(fn, args); if (error) throw error; return data; };
+const rpc = async (fn, args) => { const { data, error } = GT ? await gcall(fn, args) : await supabase.rpc(fn, args); if (error) throw error; return data; };
 const errText = e => {
   const m = String(e?.message || e || '');
   if (m.includes('open_game_exists')) return 'כבר יש משחק פתוח. אפשר להצטרף אליו.';
@@ -71,10 +79,10 @@ const act = async (fn, args, after) => {
 
 async function refresh(force) {
   try {
-    if (!roomId) { const cur = await rpc('game_current'); roomId = cur?.room_id || null; }
+    if (!roomId && !GT) { const cur = await rpc('game_current'); roomId = cur?.room_id || null; }
     if (roomId) {
       const st = await rpc('game_state', { p_room: roomId });
-      if (!st || st.room.status === 'closed') { roomId = null; ST = null; } else { off = st.now - Date.now(); ST = st; }
+      if (!st || st.room.status === 'closed') { roomId = null; ST = null; } else { off = st.now - Date.now(); ST = st; learnNames(st); }
     } else ST = null;
   } catch (_) { /* נשארים עם המצב האחרון */ }
   render();
@@ -113,6 +121,7 @@ function build(key) {
   const bind = (id, fn) => { const e = $(id); if (e) e.onclick = fn; };
 
   if (key.startsWith('none')) {
+    if (GT) { set(`${head()}<div class="gcard main"><p class="gsub">המשחק הסתיים</p><p class="ghint">תודה ששיחקת!</p></div>`); return; }
     set(`${head()}<div class="gcard main"><p class="gsub">אין משחק פתוח עכשיו</p>
       ${isGiver ? `<div class="gprize"><label for="gPrize">פרס למנצח הכללי (בנקודות)</label><input id="gPrize" type="number" inputmode="numeric" min="0" max="1000" placeholder="ריק = משחק בלי פרס"></div>` : ''}
       <p class="ghint">פותחים משחק, וכל המשפחה מקבלת הזמנה</p>
@@ -153,7 +162,9 @@ function build(key) {
     set(`${head()}<div class="gcard main"><p class="gsub">${nm(r.host_id)} פתח/ה משחק. מי שמצטרף נכנס!</p>
       ${playersRow(joined.concat(pend), tags)}${prizeBadge(r)}
       ${host ? `<button class="gbtn go" id="gStart" type="button">התחל משחק</button><button class="gbtn ghost" id="gClose" type="button">סגירת המשחק</button>`
-             : `<p class="ghint">מחכים שהמנהל יתחיל</p><button class="gbtn ghost" id="gLeave" type="button">יציאה מהמשחק</button>`}</div>`);
+             : `<p class="ghint">מחכים שהמנהל יתחיל</p><button class="gbtn ghost" id="gLeave" type="button">יציאה מהמשחק</button>`}
+      ${GT ? '' : '<button class="gbtn ghost" id="gGuest" type="button">הזמן אורח בקישור</button>'}</div>`);
+    bind('#gGuest', () => inviteGuest('game'));
     bind('#gStart', () => { sfx.start(); act('game_start_round', { p_room: roomId }); });
     bind('#gClose', () => act('game_close', { p_room: roomId }));
     bind('#gLeave', () => act('game_leave', { p_room: roomId }));
@@ -231,7 +242,7 @@ function build(key) {
     const rows = joined.slice().sort((a, b) => (wins[b.user_id] || 0) - (wins[a.user_id] || 0)).map(p => `<div class="gsr">${av(p.user_id, 36)}<span style="width:48px">${nm(p.user_id)}</span><div class="bg"><i style="width:${(wins[p.user_id] || 0) / mx * 100}%"></i></div><span class="n">${wins[p.user_id] || 0}</span></div>`).join('');
     set(`${head()}<div class="gcard main"><div class="gcrown">🏆</div>
       ${ch ? `<p class="gwho" style="font-size:24px">${nm(ch)} המנצח/ת הכללי/ת!</p><div style="display:grid;place-items:center;margin:8px 0">${av(ch, 84)}</div>
-        ${r.prize > 0 ? `<div style="text-align:center"><span class="gpbadge" style="font-size:20px">+${r.prize} נקודות נכנסו לנקודות של ${nm(ch)}</span></div>` : '<p class="ghint">משחק בלי פרס. כל הכבוד לכולם!</p>'}`
+        ${r.prize > 0 && !isGuestId(ch) ? `<div style="text-align:center"><span class="gpbadge" style="font-size:20px">+${r.prize} נקודות נכנסו לנקודות של ${nm(ch)}</span></div>` : (r.prize > 0 ? '<p class="ghint">כל הכבוד! הפרס שמור לבני המשפחה</p>' : '<p class="ghint">משחק בלי פרס. כל הכבוד לכולם!</p>')}`
           : '<p class="gwho" style="font-size:22px">המשחק נגמר</p><p class="ghint">לא נבחרו מנצחים בסבבים</p>'}
       <div class="gscore">${rows}</div>
       ${host ? '<button class="gbtn go" id="gClose" type="button">סגירת המשחק</button>' : '<p class="ghint">המנהל יסגור את המשחק</p>'}</div>`, () => { sfx.win(); confetti(140); window.scrollTo({ top: 0 }); });
@@ -272,18 +283,18 @@ function liveUpdate() {
   if (inForm && left === 0 && !(mySub && subRound === r.round)) submitMine(true);
   if (sNow() >= r.ends_at + 3300 && ticked !== roomId + ':' + r.round) {
     ticked = roomId + ':' + r.round;
-    supabase.rpc('game_tick', { p_room: roomId }).then(() => refresh(true));
+    rpc('game_tick', { p_room: roomId }).then(() => refresh(true)).catch(() => {});
   }
 }
 
 /* ---- הפעלה ---- */
-try { isGiver = (await supabase.rpc('is_bonus_giver')).data === true; } catch (_) {}
+if (!GT) { try { isGiver = (await supabase.rpc('is_bonus_giver')).data === true; } catch (_) {} }
 await refresh(true);
 setInterval(() => { if (!document.hidden) refresh(); }, 2500);
 setInterval(() => { if (ST) { const k = computeKey(); if (k !== viewKey) render(); else liveUpdate(); } }, 250);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(true); });
 let rt = null;
-supabase.channel('gamepage-' + me.id)
+if (!GT) supabase.channel('gamepage-' + me.id)
   .on('postgres_changes', { event: '*', schema: 'public', table: 'game_rooms' }, () => { clearTimeout(rt); rt = setTimeout(() => refresh(true), 150); })
   .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players' }, () => { clearTimeout(rt); rt = setTimeout(() => refresh(true), 150); })
   .subscribe();
