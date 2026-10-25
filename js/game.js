@@ -87,8 +87,31 @@ export function startGame(me, profiles) {
     } catch (_) {}
   }
 
-  check(); checkCk();
-  timer = setInterval(() => { if (!document.hidden) check(); checkCk(); }, 25000);
+  // הזמנות לצוללות
+  async function checkBs() {
+    try {
+      const { data } = await supabase.from('bs_games').select('id,a_id').eq('b_id', me.id).eq('status', 'invite');
+      const list = (data || []).filter(g => !(/battleship\.html/.test(location.pathname) && location.search.includes(g.id)));
+      document.querySelectorAll('[id^="bsInv-"]').forEach(e => { if (!list.some(g => 'bsInv-' + g.id === e.id)) e.remove(); });
+      list.forEach(g => {
+        const u = byId[g.a_id], id = 'bsInv-' + g.id;
+        const m = popup(id, `<div style="display:grid;place-items:center">${avatar(u, 84)}</div>
+          <h2 style="margin:12px 0 4px;color:#4B3DB8">${esc(u?.name || 'מישהו')} הזמין/ה אותך לשחק</h2>
+          <p style="font-size:22px;font-weight:800;margin:0 0 6px">צוללות</p>
+          ${btn(id + 'y', 'בוא נשחק')}${btn(id + 'n', 'לא עכשיו', true)}`);
+        if (m) {
+          m.querySelector('#' + CSS.escape(id + 'y')).onclick = async () => {
+            drop(id); const { error } = await supabase.rpc('bs_respond', { p_game: g.id, p_accept: true });
+            if (error) showToast('הפעולה נכשלה', true); else location.href = 'battleship.html?g=' + g.id;
+          };
+          m.querySelector('#' + CSS.escape(id + 'n')).onclick = async () => { drop(id); await supabase.rpc('bs_respond', { p_game: g.id, p_accept: false }); };
+        }
+      });
+    } catch (_) {}
+  }
+
+  check(); checkCk(); checkBs();
+  timer = setInterval(() => { if (!document.hidden) check(); checkCk(); checkBs(); }, 25000);
   let rt = null;
   const soon = () => { clearTimeout(rt); rt = setTimeout(check, 200); };
   supabase.channel('game-' + me.id)
@@ -96,4 +119,5 @@ export function startGame(me, profiles) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players' }, soon)
     .subscribe();
   supabase.channel('ck-inv-' + me.id).on('postgres_changes', { event: '*', schema: 'public', table: 'checkers_games' }, () => setTimeout(checkCk, 200)).subscribe();
+  supabase.channel('bs-inv-' + me.id).on('postgres_changes', { event: '*', schema: 'public', table: 'bs_games' }, () => setTimeout(checkBs, 200)).subscribe();
 }
