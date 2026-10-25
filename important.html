@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | הודעה חשובה</title>
+<meta name="theme-color" content="#0D6EFD">
+<meta name="color-scheme" content="only light">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/style.css">
+<style>
+.ibox{background:#FFF7ED;border:4px solid #FF8A00;border-radius:22px;padding:14px;margin-bottom:14px}
+.ibox h2{margin:0 0 4px;color:#9A3412;font-size:20px}
+.ibox .hint{color:#C2410C;font-size:14px;margin:0 0 10px}
+.who{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.wchip{display:flex;flex-direction:column;align-items:center;gap:4px;border:3px solid #FFD2A1;background:#fff;border-radius:16px;padding:8px 10px;min-width:72px;cursor:pointer;font-family:inherit;font-weight:700;color:#7C2D12;font-size:15px}
+.wchip.on{border-color:#F97316;background:#FFE7CC;box-shadow:0 0 0 3px rgba(249,115,22,.25)}
+.wchip .tick{height:18px;font-size:16px;color:#F97316}
+.ibox textarea{width:100%;box-sizing:border-box;min-height:100px;border:3px solid #FFC078;border-radius:16px;padding:10px;font-size:18px;font-family:inherit;resize:none;background:#fff}
+.ibox textarea:focus{outline:none;border-color:#FF8A00}
+.itools{display:flex;gap:8px;margin:8px 0;align-items:center}
+.itool{border:2px solid #FFC078;background:#fff;color:#C2410C;border-radius:14px;padding:8px 12px;font-weight:700;font-size:15px;font-family:inherit;display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.ipv{position:relative;display:inline-block}.ipv img{width:70px;height:70px;object-fit:cover;border-radius:12px;border:2px solid #FFC078}
+.ipv button{position:absolute;top:-8px;inset-inline-end:-8px;width:26px;height:26px;border-radius:50%;border:0;background:#C2410C;color:#fff;font-size:16px;line-height:1;cursor:pointer}
+.obtn{display:block;width:100%;border:0;border-radius:16px;padding:14px;font-weight:800;font-size:19px;font-family:inherit;color:#fff;background:linear-gradient(135deg,#FF9F1C,#F97316);box-shadow:0 5px 0 #C2410C;cursor:pointer}
+.obtn:active{transform:translateY(3px);box-shadow:0 2px 0 #C2410C}.obtn:disabled{opacity:.6}
+.mrow{background:#fff;border:2px solid #FFD2A1;border-radius:18px;padding:10px 12px;margin-bottom:10px}
+.mrow .mh{display:flex;align-items:center;gap:8px;margin-bottom:6px}.mrow .mh b{color:#9A3412}.mrow .mh small{color:#B45309;margin-inline-start:auto}
+.mrow p{margin:0 0 6px;font-size:17px;white-space:pre-wrap;word-break:break-word}
+.mrow img.mi{display:block;max-width:100%;max-height:200px;border-radius:12px;margin-bottom:6px;cursor:zoom-in}
+.st{display:flex;flex-wrap:wrap;gap:6px}
+.st span{font-size:14px;font-weight:700;border-radius:999px;padding:3px 10px;background:#FFE7CC;color:#9A3412}
+.st span.ok{background:#DCFCE7;color:#166534}
+.mdel{border:0;background:none;color:#B91C1C;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;padding:4px 0}
+.zoomov{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:10px}
+.zoomov img{max-width:100%;max-height:100%;border-radius:12px}
+</style>
+</head>
+<body>
+<main>
+  <div class="ibox">
+    <h2>הודעה חשובה</h2>
+    <p class="hint">ההודעה תקפוץ אצל מי שבחרתם בחלונית גדולה, עד שיענו לה.</p>
+    <div class="sec-title" style="margin:6px 0 0">למי לשלוח?</div>
+    <div class="who" id="who"></div>
+    <textarea id="text" maxlength="1000" placeholder="כתבו את ההודעה..."></textarea>
+    <div class="itools">
+      <button class="itool" id="cam" type="button"></button>
+      <button class="itool" id="gal" type="button"></button>
+      <span id="pv"></span>
+    </div>
+    <input type="file" id="fc" accept="image/*" capture="environment" hidden>
+    <input type="file" id="fg" accept="image/*" hidden>
+    <button class="obtn" id="send" type="button">שליחה</button>
+  </div>
+  <div class="sec-title">ההודעות ששלחתי</div>
+  <div id="sent"><p class="empty">טוען...</p></div>
+  <div class="sec-title">הודעות שקיבלתי</div>
+  <div id="got"><p class="empty">טוען...</p></div>
+</main>
+<script type="module">
+import { initPage, supabase, esc, icon, avatar, signedUrls, shrinkImage, showToast } from './js/common.js';
+import { impWhen } from './js/important.js';
+const { me, profiles } = await initPage({ active: 'important', title: 'הודעה חשובה', back: 'index.html' });
+const $ = id => document.getElementById(id);
+const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
+const others = profiles.filter(p => p.is_user !== false && p.id !== me?.id);
+let sel = new Set(), blob = null, blobUrl = null, busy = false;
+$('cam').innerHTML = icon('camera', 20) + ' צילום'; $('gal').innerHTML = icon('image', 20) + ' תמונה';
+supabase.rpc('purge_important').then(() => {}, () => {});
+
+function drawWho() {
+  const all = others.length > 0 && others.every(p => sel.has(p.id));
+  $('who').innerHTML = `<button type="button" class="wchip ${all ? 'on' : ''}" data-all="1"><span style="font-size:30px;line-height:42px">👨‍👩‍👧‍👦</span>כולם<span class="tick">${all ? '✓' : ''}</span></button>` +
+    others.map(p => `<button type="button" class="wchip ${sel.has(p.id) ? 'on' : ''}" data-id="${p.id}">${avatar(p, 42)}${esc(p.name)}<span class="tick">${sel.has(p.id) ? '✓' : ''}</span></button>`).join('');
+}
+$('who').addEventListener('click', e => {
+  const b = e.target.closest('.wchip'); if (!b) return;
+  if (b.dataset.all) { const all = others.every(p => sel.has(p.id)); sel = new Set(all ? [] : others.map(p => p.id)); }
+  else { const id = b.dataset.id; sel.has(id) ? sel.delete(id) : sel.add(id); }
+  drawWho();
+});
+const drawPv = () => { $('pv').innerHTML = blobUrl ? `<span class="ipv"><img src="${blobUrl}" alt=""><button type="button" id="rm" aria-label="הסרה">×</button></span>` : ''; $('rm')?.addEventListener('click', () => { blob = null; blobUrl = null; drawPv(); }); };
+$('cam').onclick = () => $('fc').click(); $('gal').onclick = () => $('fg').click();
+for (const id of ['fc', 'fg']) $(id).addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try { blob = await shrinkImage(f); blobUrl = URL.createObjectURL(blob); drawPv(); } catch (_) { showToast('התמונה לא נטענה', true); }
+});
+$('send').onclick = async () => {
+  if (busy) return;
+  const txt = $('text').value.trim();
+  if (!sel.size) { showToast('בחרו למי לשלוח', true); return; }
+  if (!txt && !blob) { showToast('כתבו הודעה או צרפו תמונה', true); return; }
+  busy = true; $('send').disabled = true;
+  try {
+    let path = null;
+    if (blob) {
+      path = `reports/${me.id}/imp-${crypto.randomUUID()}.jpg`;
+      const up = await supabase.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+      if (up.error) throw new Error('upload');
+    }
+    const r = await supabase.from('important_msgs').insert({ to_users: [...sel], body: txt || null, photo_path: path });
+    if (r.error) throw new Error('send');
+    $('text').value = ''; blob = null; blobUrl = null; sel = new Set(); drawPv(); drawWho();
+    showToast('ההודעה נשלחה'); await load();
+  } catch (_) { showToast('השליחה נכשלה, נסו שוב', true); }
+  busy = false; $('send').disabled = false;
+};
+
+const row = (m, urls, extra) => {
+  const p = byId[m.sender_id];
+  return `<div class="mrow"><div class="mh">${avatar(p, 34)}<b>${esc(p?.name || 'מישהו')}</b><small>${impWhen(m.created_at)}</small></div>
+    ${m.photo_path && urls[m.photo_path] ? `<img class="mi" src="${urls[m.photo_path]}" alt="תמונה">` : ''}
+    ${m.body ? `<p>${esc(m.body)}</p>` : ''}${extra}</div>`;
+};
+async function load() {
+  const { data, error } = await supabase.from('important_msgs').select('id,sender_id,to_users,body,photo_path,parent_id,created_at').order('created_at', { ascending: false }).limit(40);
+  if (error) { $('sent').innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; $('got').innerHTML = ''; return; }
+  const all = data || [];
+  const sent = all.filter(m => m.sender_id === me.id).slice(0, 15);
+  const got = all.filter(m => m.sender_id !== me.id).slice(0, 15);
+  const urls = await signedUrls(all.map(m => m.photo_path));
+  const reads = sent.length ? ((await supabase.from('important_reads').select('msg_id,user_id,opened_at,done').in('msg_id', sent.map(m => m.id))).data || []) : [];
+  $('sent').innerHTML = sent.length ? sent.map(m => {
+    const st = m.to_users.map(u => { const r = reads.find(x => x.msg_id === m.id && x.user_id === u); const n = esc(byId[u]?.name || '');
+      return r ? `<span class="ok">${n} ✓ נקרא${r.done ? '' : ' (עוד לא ענה)'}</span>` : `<span>${n} · טרם נקרא</span>`; }).join('');
+    return `<div class="mrow"><div class="mh"><b>אל:</b><small style="margin-inline-start:0">${impWhen(m.created_at)}</small></div>
+      ${m.photo_path && urls[m.photo_path] ? `<img class="mi" src="${urls[m.photo_path]}" alt="תמונה">` : ''}${m.body ? `<p>${esc(m.body)}</p>` : ''}
+      <div class="st">${st}</div><button class="mdel" type="button" data-del="${m.id}">מחיקה</button></div>`;
+  }).join('') : '<p class="empty">עוד לא שלחתם הודעות</p>';
+  $('got').innerHTML = got.length ? got.map(m => row(m, urls, '')).join('') : '<p class="empty">אין הודעות שהתקבלו</p>';
+}
+document.querySelector('main').addEventListener('click', async e => {
+  const im = e.target.closest('img.mi');
+  if (im) { const z = document.createElement('div'); z.className = 'zoomov'; z.innerHTML = `<img src="${im.src}" alt="">`; z.onclick = () => z.remove(); document.body.append(z); return; }
+  const d = e.target.closest('[data-del]');
+  if (d && confirm('למחוק את ההודעה אצל כולם?')) { await supabase.from('important_msgs').delete().eq('id', d.dataset.del); load(); }
+});
+drawWho(); drawPv();
+await load();
+</script>
+</body>
+</html>
