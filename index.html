@@ -40,7 +40,7 @@
 </main>
 <div class="modal hidden" id="pmodal"><div class="modal-card" id="pcard"></div></div>
 <script type="module">
-import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, pointsFor, ilDate, ilTime, addDays, reportCounts, deriveStatus, nextSlot, STATUS } from './js/common.js';
+import { initPage, supabase, esc, icon, iconBox, tintOf, avatar, pointsFor, ilDate, ilTime, addDays, reportCounts, deriveStatus, nextSlot, STATUS, signedUrls } from './js/common.js';
 import { weeklyPoints } from './js/points.js';
 import { showOutDetails } from './js/outings.js';
 const { me, profiles } = await initPage({ active: 'home', title: 'הבית שלנו' });
@@ -172,8 +172,7 @@ else {
   const paths = reps.map(r => r.photo_path).filter(Boolean);
   const urls = {};
   if (paths.length) {
-    const { data: signed } = await supabase.storage.from('photos').createSignedUrls(paths, 3600);
-    (signed || []).forEach(sg => { if (sg.path && sg.signedUrl) urls[sg.path] = sg.signedUrl; });
+    Object.assign(urls, await signedUrls(paths));
   }
   rEl.innerHTML = reps.map(r => {
     const t = tById[r.task_id]; const who = byId[r.user_id];
@@ -218,14 +217,14 @@ async function loadReqBadge() {
   document.getElementById('reqBadge').innerHTML = n ? `<span class="badge2">${n > 9 ? '9+' : n}</span>` : '';
 }
 loadReqBadge();
-setInterval(() => { if (!document.hidden) loadReqBadge(); }, 15000);
+setInterval(() => { if (!document.hidden) loadReqBadge(); }, 45000);
 await loadFeed();
 try {
   supabase.channel('feed-home')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed', filter: 'type=in.(chat,system)' }, () => loadFeed())
     .subscribe();
 } catch (_) {}
-setInterval(() => { if (!document.hidden) loadFeed(); }, 8000);
+setInterval(() => { if (!document.hidden) loadFeed(); }, 30000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) loadFeed(); });
 document.getElementById('quick').addEventListener('submit', async e => {
   e.preventDefault();

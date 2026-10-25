@@ -138,7 +138,7 @@ $('modal').addEventListener('click', e => { if (e.target === $('modal')) close()
 $('add').onclick = openForm;
 try { localStorage.setItem('reqSeen', new Date().toISOString()); } catch (_) {}
 await load();
-setInterval(() => { if (!document.hidden && $('modal').classList.contains('hidden')) load(); }, 10000);
+setInterval(() => { if (!document.hidden && $('modal').classList.contains('hidden')) load(); }, 30000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
 </script>
 </body>

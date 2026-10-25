@@ -33,7 +33,7 @@
 </main>
 <div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
 <script type="module">
-import { initPage, supabase, esc, icon, iconBox, avatar, pointsFor, ilDate, ilTime, addDays, toIsraelDate, weekStart, reportCounts } from './js/common.js';
+import { initPage, supabase, esc, icon, iconBox, avatar, pointsFor, ilDate, ilTime, addDays, toIsraelDate, weekStart, reportCounts, signedUrls } from './js/common.js';
 const { profiles, isAdmin } = await initPage({ active: 'history', title: 'היסטוריה ודיווחים' });
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 const today = ilDate(new Date());
@@ -101,8 +101,7 @@ async function load() {
   const paths = reps.map(r => r.photo_path).filter(Boolean);
   const urls = {};
   if (paths.length) {
-    const { data: signed } = await supabase.storage.from('photos').createSignedUrls(paths, 3600);
-    (signed || []).forEach(sg => { if (sg.path && sg.signedUrl) urls[sg.path] = sg.signedUrl; });
+    Object.assign(urls, await signedUrls(paths));
   }
   if (my !== seq) return;
   window.__rows = reps.map(r => {

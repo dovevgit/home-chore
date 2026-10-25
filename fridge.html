@@ -74,11 +74,23 @@ const ago = iso => {
   const d = Math.round(h / 24); return `לפני ${d === 1 ? 'יום' : d + ' ימים'}`;
 };
 
+const imgCache = {}; let lastSig = '';
 async function load() {
   const since = new Date(Date.now() - DAYS * 864e5).toISOString();
-  const { data, error } = await supabase.from('fridge_notes').select('*').gte('created_at', since).order('created_at');
+  /* רשימה קלה בלי התמונות; את התמונות מורידים פעם אחת בלבד לכל פתק ושומרים בזיכרון */
+  const { data, error } = await supabase.from('fridge_notes').select('id,user_id,body,color,x,y,rot,created_at').gte('created_at', since).order('created_at');
   if (error) { $('notes').innerHTML = ''; $('fempty').textContent = 'לא הצלחנו לטעון את הפתקים'; $('fempty').classList.remove('hidden'); return; }
-  notes = (data || []).slice(-40); render();
+  const rows = (data || []).slice(-40);
+  const missing = rows.map(n => n.id).filter(id => !(id in imgCache));
+  if (missing.length) {
+    const { data: im } = await supabase.from('fridge_notes').select('id,photo,drawing').in('id', missing);
+    (im || []).forEach(r => { imgCache[r.id] = { photo: r.photo || null, drawing: r.drawing || null }; });
+    missing.forEach(id => { if (!(id in imgCache)) imgCache[id] = { photo: null, drawing: null }; });
+  }
+  rows.forEach(n => Object.assign(n, imgCache[n.id]));
+  const sig = JSON.stringify(rows.map(n => [n.id, n.body, n.x, n.y]));
+  const same = sig === lastSig; lastSig = sig; notes = rows;
+  if (!same) render();
 }
 function render() {
   $('fempty').textContent = 'המקרר ריק. הוסיפו פתק ראשון!';
@@ -228,7 +240,7 @@ function openAdd() {
 $('fadd').onclick = openAdd;
 supabase.rpc('purge_fridge_notes').then(() => {}, () => {});
 await load();
-setInterval(() => { if (!document.hidden && $('modal').classList.contains('hidden')) load(); }, 10000);
+setInterval(() => { if (!document.hidden && $('modal').classList.contains('hidden')) load(); }, 45000);
 </script>
 </body>
 </html>

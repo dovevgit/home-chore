@@ -27,7 +27,7 @@
 </form>
 <div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
 <script type="module">
-import { initPage, supabase, esc, icon, avatar, ilDate, ilTime, addDays, flashToast, showToast, shrinkImage } from './js/common.js';
+import { initPage, supabase, esc, icon, avatar, ilDate, ilTime, addDays, flashToast, showToast, shrinkImage, signedUrls } from './js/common.js';
 const { session, profiles } = await initPage({ title: 'הודעות משפחתיות', back: 'index.html' });
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 const me = session.user.id;
@@ -43,8 +43,7 @@ const dayLabel = d => d === today ? 'היום' : d === addDays(today, -1) ? 'א�
 async function signFor(rows) {
   const need = rows.map(m => m.photo_path).filter(p => p && !urls[p]);
   if (!need.length) return;
-  const { data } = await supabase.storage.from('photos').createSignedUrls(need, 3600);
-  (data || []).forEach(sg => { if (sg.path && sg.signedUrl) urls[sg.path] = sg.signedUrl; });
+  Object.assign(urls, await signedUrls(need));
 }
 function render(scroll) {
   const box = $('msgs');
@@ -113,7 +112,7 @@ try {
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed', filter: 'type=in.(chat,system)' }, () => load(false))
     .subscribe();
 } catch (_) {}
-setInterval(() => { if (!document.hidden) load(false); }, 8000);
+setInterval(() => { if (!document.hidden) load(false); }, 30000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(false); });
 </script>
 </body>
