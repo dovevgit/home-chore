@@ -7,6 +7,20 @@ const byId = Object.fromEntries((profiles || []).map(p => [p.id, p]));
 const root = document.getElementById('ck');
 const gid = new URLSearchParams(location.search).get('g');
 const CROWN = '<svg viewBox="0 0 24 24"><path d="M3 18h18l1-10-5 4-5-8-5 8-5-4z" fill="#FFC93C" stroke="#B07A00" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+
+const RULES = `<details class="ckcard ckrules"><summary>איך משחקים דמקה? (החוקים)</summary>
+<ol>
+<li><b>המטרה:</b> לאכול את כל הכלים של היריב, או לחסום אותו כך שלא יוכל לזוז.</li>
+<li><b>מי מתחיל:</b> מי שהזמין משחק בלבן ומתחיל. בכל תור זזים כלי אחד.</li>
+<li><b>חייל רגיל:</b> זז צעד אחד באלכסון קדימה, למשבצת חומה ריקה.</li>
+<li><b>אכילה:</b> קופצים מעל כלי של היריב שנמצא צמוד באלכסון, אל המשבצת הריקה שמאחוריו. החייל אוכל גם אחורה.</li>
+<li><b>חובה לאכול:</b> אם אפשר לאכול, חייבים. אם יש כמה אפשרויות אכילה, בוחרים איזו שרוצים.</li>
+<li><b>כמה אכילות ברצף:</b> אחרי שאכלת, אם אפשר להמשיך לאכול עם אותו כלי, חייבים להמשיך באותו תור. המשבצות המסומנות מראות לאן אפשר להמשיך.</li>
+<li><b>מלך:</b> חייל שמגיע לשורה האחרונה של היריב הופך למלך (עם כתר). מלך זז באלכסון כמה משבצות שרוצה, ואוכל גם ממרחק, כל עוד המשבצת שמאחורי הכלי הנאכל ריקה.</li>
+<li><b>קידום באמצע אכילה:</b> חייל שהגיע לשורה האחרונה תוך כדי אכילה הופך למלך וממשיך לאכול באותו תור.</li>
+<li><b>תיקו:</b> אפשר להציע תיקו ליריב. המשחק נגמר בתיקו גם אחרי 15 מהלכים של כל שחקן שבהם רק מלכים זזו ואף אחד לא נאכל.</li>
+<li><b>איך מזיזים:</b> לוחצים על הכלי ואז על המשבצת שאליה רוצים להגיע. נקודות ירוקות מראות מהלכים אפשריים, ומשבצת צהובה מסמנת כלי שחייבים לאכול איתו.</li>
+</ol></details>`;
 const nm = id => (byId[id] && byId[id].name) || 'שחקן';
 
 // צלילים קטנים
@@ -47,7 +61,7 @@ async function showList() {
       ${others.map(p => `<button class="ckp" data-id="${p.id}" type="button" ${busyWith.has(p.id) ? 'disabled style="opacity:.4"' : ''}>${avatar(p, 52)}${esc(p.name)}</button>`).join('') || '<p class="ckempty">אין עוד שחקנים</p>'}
     </div></div>
     ${active.length ? `<div class="ckcard"><h3>משחקים פעילים</h3>${active.map(row).join('')}</div>` : ''}
-    ${done.length ? `<div class="ckcard"><h3>משחקים אחרונים</h3>${done.map(row).join('')}</div>` : ''}`;
+    ${done.length ? `<div class="ckcard"><h3>משחקים אחרונים</h3>${done.map(row).join('')}</div>` : ''}${RULES}`;
   root.querySelectorAll('.ckp:not([disabled])').forEach(b => b.onclick = async () => {
     b.disabled = true;
     const { data, error } = await supabase.rpc('checkers_invite', { p_opp: b.dataset.id });
@@ -112,7 +126,7 @@ function render() {
     else btns = `<button class="ckbtn g" id="bDraw" type="button" ${g.draw_offer === me.id ? 'disabled' : ''}>${g.draw_offer === me.id ? 'הצעת תיקו נשלחה' : 'הצע תיקו'}</button><button class="ckbtn r" id="bResign" type="button">ויתור</button>`;
   } else btns = `<a class="ckbtn" style="text-align:center;text-decoration:none" href="checkers.html">למשחקים</a>`;
 
-  root.innerHTML = `${bar(oppId, false)}<div class="ckboard" id="bd">${cells}</div>${bar(me.id, true)}<div class="ckmsg">${msg}</div><div class="ckbtns">${btns}</div>`;
+  root.innerHTML = `${bar(oppId, false)}<div class="ckboard" id="bd">${cells}</div>${bar(me.id, true)}<div class="ckmsg">${msg}</div><div class="ckbtns">${btns}</div>${RULES}`;
   root.querySelectorAll('.cks').forEach(el => el.onclick = () => tap(+el.dataset.i));
   const $ = id => document.getElementById(id);
   const rpc = async (fn, args) => { if (busy) return; busy = true; const { error } = await supabase.rpc(fn, args); busy = false; if (error) showToast('הפעולה נכשלה', true); await load(); };
