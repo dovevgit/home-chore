@@ -59,6 +59,13 @@
     <input type="file" id="fg" accept="image/*" hidden>
     <button class="obtn" id="send" type="button">שליחה</button>
   </div>
+  <div class="xbox" id="pvBox" hidden>
+    <h2>תצוגה מקדימה (מנהלים)</h2>
+    <p class="hint">מראה איך החלונית נראית אצל הנמענים, על גבי דף הבית כמו הודעה אמיתית. לא נשלח ולא נשמר כלום.</p>
+    <select id="pvSender" style="width:100%;padding:12px;font-size:17px;font-family:inherit;border:3px solid #FFC078;border-radius:14px;background:#fff;margin-bottom:8px"></select>
+    <label style="display:flex;align-items:center;gap:8px;margin:6px 0 10px;font-weight:700;color:#7C2D12"><input type="checkbox" id="pvTwo"> הצג גם הודעה משולח נוסף</label>
+    <button class="obtn" id="pvGo" type="button">הצג לי איך זה נראה</button>
+  </div>
   <div class="sec-title">ההודעות ששלחתי</div>
   <div id="sent"><p class="empty">טוען...</p></div>
   <div class="sec-title">הודעות שקיבלתי</div>
@@ -67,7 +74,7 @@
 <script type="module">
 import { initPage, supabase, esc, icon, avatar, signedUrls, shrinkImage, showToast } from './js/common.js';
 import { impWhen } from './js/important.js';
-const { me, profiles } = await initPage({ active: 'important', title: 'הודעה חשובה', back: 'index.html' });
+const { me, profiles, isAdmin } = await initPage({ active: 'important', title: 'הודעה חשובה', back: 'index.html' });
 const $ = id => document.getElementById(id);
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 const others = profiles.filter(p => p.is_user !== false && p.id !== me?.id);
@@ -142,6 +149,16 @@ document.querySelector('main').addEventListener('click', async e => {
   const d = e.target.closest('[data-del]');
   if (d && confirm('למחוק את ההודעה אצל כולם?')) { await supabase.from('important_msgs').delete().eq('id', d.dataset.del); load(); }
 });
+if (isAdmin) {
+  $('pvBox').hidden = false;
+  $('pvSender').innerHTML = others.map(p => `<option value="${p.id}">שולח לדוגמה: ${esc(p.name)}</option>`).join('');
+  $('pvGo').onclick = () => {
+    const a = $('pvSender').value; const senders = [a];
+    if ($('pvTwo').checked) { const b = others.find(p => p.id !== a); if (b) senders.push(b.id); }
+    try { sessionStorage.setItem('impPreview', JSON.stringify({ senders })); } catch (_) {}
+    location.href = 'index.html';
+  };
+}
 drawWho(); drawPv();
 await load();
 </script>
