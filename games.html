@@ -45,6 +45,11 @@
       <div><b>פוקר</b><span>טקסס הולדם לעד 6 שחקנים</span></div>
       <div class="live" id="tPkLive">שולחן פתוח!</div>
     </a>
+    <a class="gtile" href="backgammon.html" id="tBg">
+      <div class="gi" style="background:linear-gradient(135deg,#5a3a26,#17222f);color:#e2b552">&#9861;</div>
+      <div><b>שש בש</b><span>משחק לזוג, שש בש קלאסי</span></div>
+      <div class="live" id="tBgLive">תורך!</div>
+    </a>
   </div>
 </main>
 <script type="module">
@@ -62,6 +67,12 @@ try {
   const { data } = await supabase.from('bs_games').select('*').in('status', ['invite', 'setup', 'play']);
   const my = (data || []).some(g => { const a = g.a_id === uid; return (g.status === 'invite' && g.b_id === uid) || (g.status === 'setup' && !(a ? g.ready_a : g.ready_b)) || (g.status === 'play' && g.turn === (a ? 'a' : 'b')); });
   if (my) document.getElementById('tBsLive').style.display = 'block';
+} catch (_) {}
+try {
+  const { data: { session } } = await supabase.auth.getSession(); const uid = session.user.id;
+  const { data } = await supabase.from('bg_games').select('id,a_id,b_id,status,turn').in('status', ['invite', 'play']);
+  const my = (data || []).some(g => (g.status === 'invite' && g.b_id === uid) || (g.status === 'play' && g.turn === (g.a_id === uid ? 'a' : 'b')));
+  if (my) document.getElementById('tBgLive').style.display = 'block';
 } catch (_) {}
 try {
   const { data } = await supabase.rpc('poker_list');
