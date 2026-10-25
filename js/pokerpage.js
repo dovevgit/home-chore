@@ -1,4 +1,4 @@
-import { initPage, supabase, esc, showToast } from './common.js';
+import { initPage, supabase, esc, avatar, showToast } from './common.js';
 import { guestToken, guestMode, inviteGuest } from './guest.js';
 
 /* ================= הכנה: בן משפחה או אורח ================= */
@@ -18,7 +18,7 @@ const HAND = ['קלף גבוה', 'זוג', 'שני זוגות', 'שלישייה'
 const SEATPOS = [[50, 85], [11, 66], [11, 27], [50, 8], [89, 27], [89, 66]];
 const PICK = { 1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 5], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5] };
 const ERR = { not_your_turn: 'עדיין לא התור שלך', table_full: 'השולחן מלא (6 שחקנים)', already_seated: 'אתה כבר יושב בשולחן אחר', closed: 'השולחן נסגר', need_players: 'צריך לפחות 2 שחקנים',
-  raise_too_small: 'ההעלאה קטנה מדי', cannot_check: 'אי אפשר צ\'ק, יש הימור', no_table: 'פתחו שולחן ורק אחר כך אפשר להזמין אורח', too_many: 'יצרתם יותר מדי קישורים להיום' };
+  raise_too_small: 'ההעלאה קטנה מדי', cannot_check: 'אי אפשר צ\'ק, יש הימור', not_invited: 'לא הוזמנת לשולחן הזה', no_table: 'פתחו שולחן ורק אחר כך אפשר להזמין אורח', too_many: 'יצרתם יותר מדי קישורים להיום' };
 const errText = (e, d) => { const m = (e && e.message) || ''; const k = Object.keys(ERR).find(x => m.includes(x)); return k ? ERR[k] : d; };
 
 const RULES = `<details class="pkpanel pkrules"><summary>איך משחקים? (החוקים)</summary>
@@ -160,12 +160,12 @@ async function showList() {
   const L = data || { tables: [], mine: null };
   root.innerHTML = `
     <div class="pkpanel"><h2>פוקר טקסס הולדם</h2>
-      <p style="margin:0;color:var(--pkmuted);line-height:1.6">עד 6 שחקנים, ז'יטונים וירטואליים. פותחים שולחן, מזמינים משפחה או אורחים בקישור, ומתחילים.</p>
+      <p style="margin:0;color:var(--pkmuted);line-height:1.6">עד 6 שחקנים, ז'יטונים וירטואליים. פותחים שולחן, בוחרים את מי להזמין (בני משפחה או אורחים בקישור), ומתחילים.</p>
       ${L.mine ? `<a class="pknext" style="text-align:center;text-decoration:none" href="poker.html?g=${L.mine}">חזרה לשולחן שלך</a>` : '<button class="pknext" id="pkNew" type="button">פתח שולחן חדש</button>'}
     </div>
-    <div class="pkpanel"><h2>שולחנות פתוחים</h2>
+    <div class="pkpanel"><h2>שולחנות שהוזמנת אליהם</h2>
       ${L.tables.length ? L.tables.map(t => `<div class="pkrow"><b>השולחן של ${esc(t.host || 'מישהו')}<br><small>${t.n} מתוך 6 שחקנים · ${t.status === 'lobby' ? 'ממתין להתחלה' : 'במשחק'}</small></b>
-        ${t.id === L.mine ? '<span class="pkchip">אתה כאן</span>' : `<button class="pkjoin" data-id="${t.id}" type="button" ${t.n >= 6 || L.mine ? 'disabled style="opacity:.4"' : ''}>הצטרף</button>`}</div>`).join('') : '<p class="pkempty" style="margin:0">אין שולחנות פתוחים כרגע</p>'}
+        ${t.id === L.mine ? '<span class="pkchip">אתה כאן</span>' : `<button class="pkjoin" data-id="${t.id}" type="button" ${t.n >= 6 || L.mine ? 'disabled style="opacity:.4"' : ''}>הצטרף</button>`}</div>`).join('') : '<p class="pkempty" style="margin:0">אין הזמנות לשולחן כרגע</p>'}
     </div>${RULES}`;
   fillRanks();
   const nb = document.getElementById('pkNew');
@@ -203,6 +203,11 @@ const DECO = `<svg class="pkdeco" viewBox="0 0 400 510" preserveAspectRatio="non
     <text x="200" y="107" font-size="13" text-anchor="middle" letter-spacing="1" fill-opacity=".75" style="font-weight:800">♠ אליפות הבית שלנו ♦</text>
     <text x="200" y="132" font-size="9.5" text-anchor="middle" letter-spacing="2" fill-opacity=".55" style="font-weight:600">TEXAS HOLD'EM</text></g></svg>`;
 
+let INV = null;
+async function loadInv() {
+  const { data } = await supabase.rpc('poker_invited', { p_table: gid });
+  INV = new Set(data || []); if (S && S.table.status === 'lobby') lobbyView();
+}
 function lobbyView() {
   const t = S.table, isHost = t.host_id === S.me, ps = S.players.filter(p => !p.left), bySeat = Object.fromEntries(ps.map(p => [p.seat, p]));
   root.innerHTML = `
@@ -210,10 +215,20 @@ function lobbyView() {
       <div class="pklobby">${[0, 1, 2, 3, 4, 5].map(i => bySeat[i] ? `<div class="pkpl"><span style="font-size:22px">${bySeat[i].user_id === t.host_id ? '👑' : '🂠'}</span>${esc(nameOf(bySeat[i]))}</div>` : '<div class="pkpl empty"><span style="font-size:22px">·</span>מקום פנוי</div>').join('')}</div>
       <div class="pkres">${ps.length < 2 ? 'ממתינים לעוד שחקן' : isHost ? 'אפשר להתחיל' : 'ממתינים שהמארח יתחיל'}</div>
       ${isHost ? `<button class="pknext" id="pkStart" type="button" ${ps.length < 2 ? 'disabled style="opacity:.4"' : ''}>התחל משחק</button>` : ''}
+      ${isHost && !GT ? `<h3 style="margin:6px 0 0;font-size:15px">הזמן מהמשפחה</h3><div class="pkfams">${profiles.filter(p => p.is_user !== false && p.id !== S.me).map(p => {
+        const seated = ps.some(x => x.user_id === p.id), inv = INV && INV.has(p.id);
+        return `<button class="pkfam" data-id="${p.id}" type="button" ${seated || inv ? 'disabled' : ''}>${avatar(p, 46)}<span>${esc(p.name)}</span><small>${seated ? 'בשולחן' : inv ? 'הוזמן/ה ✓' : 'הזמן'}</small></button>`; }).join('') || '<p class="pkempty" style="margin:0">אין עוד בני משפחה</p>'}</div>` : ''}
       ${GT ? '' : '<button class="pknext sec" id="pkInv" type="button">הזמן אורח בקישור</button>'}
       <button class="pknext sec" id="pkLeave" type="button">עזוב שולחן</button>
     </div>${RULES}`;
   fillRanks();
+  if (isHost && !GT && INV === null) loadInv();
+  root.querySelectorAll('.pkfam:not([disabled])').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    const { error } = await supabase.rpc('poker_invite', { p_table: gid, p_user: b.dataset.id });
+    if (error) { showToast('ההזמנה נכשלה', true); b.disabled = false; return; }
+    INV = INV || new Set(); INV.add(b.dataset.id); showToast('ההזמנה נשלחה'); lobbyView();
+  });
   bind('pkStart', async () => { ac(); const { error } = await rpc('poker_start'); if (error) showToast(errText(error, 'ההתחלה נכשלה'), true); await load(); });
   bind('pkInv', () => inviteGuest('poker'));
   bind('pkLeave', leave);
