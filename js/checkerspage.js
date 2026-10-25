@@ -206,6 +206,6 @@ async function tap(i) {
 if (!gid) await showList();
 else {
   await load();
-  setInterval(() => { if (!busy) load(); }, 3500);
+  setInterval(() => { if (!busy && !document.hidden) load(); }, 3500);
   if (!GT) supabase.channel('ck-' + gid).on('postgres_changes', { event: '*', schema: 'public', table: 'checkers_games', filter: 'id=eq.' + gid }, () => { if (!busy) load(); }).subscribe();
 }
