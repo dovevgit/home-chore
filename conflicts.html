@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>הבית שלנו | התנגשויות בשיבוץ</title>
+<meta name="theme-color" content="#0D6EFD">
+<meta name="color-scheme" content="only light">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/style.css">
+<style>
+.cf{margin-bottom:12px}
+.cf h3{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.cf .why{color:#92400E;font-weight:700;margin:2px 0 8px}
+.cf .lab{color:#6b7280;font-weight:700;font-size:14px;margin:6px 0 4px}
+.cf .skip{background:none;border:0;color:#6b7280;font:inherit;font-weight:700;text-decoration:underline;padding:10px 0 0;cursor:pointer}
+.cf.done{opacity:.8}
+.cfsec{margin:18px 0 8px}
+</style>
+</head>
+<body>
+<main>
+  <p class="empty" id="msg">טוען...</p>
+  <div id="open"></div>
+  <div id="doneWrap"></div>
+</main>
+<script type="module">
+import { initPage, supabase, esc, avatar, ilDate, addDays, dow, showToast } from './js/common.js';
+import { hm } from './js/events.js';
+const { me, profiles, isAdmin } = await initPage({ title: 'התנגשויות בשיבוץ', back: 'index.html', menu: false });
+const $ = id => document.getElementById(id);
+const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
+const users = profiles.filter(p => p.is_user);
+if (!isAdmin) { $('msg').textContent = 'המסך הזה להורים בלבד'; throw new Error('not admin'); }
+const today = ilDate(new Date());
+const dayName = d => d === today ? 'היום' : d === addDays(today, 1) ? 'מחר' : d.split('-').reverse().slice(0, 2).join('.');
+
+let events = [], absences = [];
+async function load() {
+  const [ev, ab, op, dn] = await Promise.all([
+    supabase.from('events').select('*'),
+    supabase.from('absences').select('*').gte('end_date', today),
+    supabase.from('task_conflicts').select('*').eq('status', 'open').order('date').order('time'),
+    supabase.from('task_conflicts').select('*').in('status', ['resolved', 'dismissed']).order('resolved_at', { ascending: false }).limit(8)
+  ]);
+  if (op.error) { $('msg').textContent = 'שגיאה בטעינה: ' + op.error.message; return; }
+  events = ev.data || []; absences = ab.data || [];
+  draw(op.data || [], dn.data || []);
+}
+// מי תפוס באותו יום ושעה (העדרות או פעילות ביומן)
+function busy(uid, date, time) {
+  const a = absences.find(x => x.user_id === uid && x.start_date <= date && date <= x.end_date);
+  if (a) return 'נעדר/ת: ' + a.reason;
+  const e = events.find(x => x.user_id === uid && (x.repeat === 'weekly' ? x.weekday === dow(date) : x.event_date === date) && hm(x.start_time) <= time && time < hm(x.end_time));
+  return e ? e.title : null;
+}
+function draw(open, done) {
+  $('msg').style.display = open.length ? 'none' : '';
+  $('msg').textContent = 'אין התנגשויות פתוחות. הכל משובץ ✓';
+  $('open').innerHTML = open.map(c => {
+    const chips = users.filter(u => u.id !== c.assignee_id).map(u => {
+      const b = busy(u.id, c.date, hm(c.time));
+      return `<button type="button" class="avchip ${b ? 'busy' : 'free'}" data-id="${c.id}" data-u="${u.id}" ${b ? 'disabled' : ''}><b>${esc(u.name)}</b><span>${b ? '✗ ' + esc(b) : '✓ פנוי/ה'}</span></button>`;
+    }).join('');
+    return `<div class="card cf"><h3><span>${esc(c.title)}</span><small>${dayName(c.date)} ב-${hm(c.time)}</small></h3>
+      <div class="why">${esc(byId[c.assignee_id]?.name || '')} תפוס/ה: ${esc(c.reason || '')}</div>
+      <div class="lab">מי יחליף/ה ${dayName(c.date)} בלבד?</div>
+      <div class="avrow" style="margin:0">${chips || '<small>אין מי שיכול</small>'}</div>
+      <button type="button" class="skip" data-skip="${c.id}">להשאיר כמו שהוא</button></div>`;
+  }).join('');
+  $('doneWrap').innerHTML = done.length ? `<div class="sec-title cfsec">טופלו לאחרונה</div>` + done.map(c => `
+    <div class="card cf done"><h3><span>${esc(c.title)}</span><small>${dayName(c.date)} ב-${hm(c.time)}</small></h3>
+    <div>${c.status === 'resolved' ? `${esc(byId[c.substitute_id]?.name || '')} מחליף/ה את ${esc(byId[c.assignee_id]?.name || '')}` : `נשאר אצל ${esc(byId[c.assignee_id]?.name || '')}`}</div></div>`).join('') : '';
+  document.querySelectorAll('[data-u]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    const { error } = await supabase.rpc('conflict_resolve', { p_id: b.dataset.id, p_user: b.dataset.u });
+    if (error) { showToast(error.message, true); return load(); }
+    showToast('המחליף/ה נקבע/ה ליום הזה ✓'); load();
+  });
+  document.querySelectorAll('[data-skip]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    const { error } = await supabase.rpc('conflict_dismiss', { p_id: b.dataset.skip });
+    if (error) showToast(error.message, true); else showToast('נשאר כמו שהוא'); load();
+  });
+}
+load();
+</script>
+</body>
+</html>

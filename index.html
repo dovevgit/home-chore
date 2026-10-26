@@ -21,6 +21,7 @@
   <div id="bday"></div>
   <div id="outBar"></div>
   <div id="pushBar"></div>
+  <div id="conflictBar"></div>
   <div id="shopBar"></div>
   <div id="leader"></div>
   <div class="card" style="margin-bottom:8px"><div class="sec-title" style="margin:0">סיכום היום</div>
@@ -47,6 +48,11 @@ import { showOutDetails } from './js/outings.js';
 const { me, profiles } = await initPage({ active: 'home', title: 'הבית שלנו' });
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
 const today = ilDate(new Date());
+if (me?.role === 'admin') {
+  supabase.from('task_conflicts').select('id', { count: 'exact', head: true }).eq('status', 'open').then(({ count }) => {
+    if (count) document.getElementById('conflictBar').innerHTML = `<a class="card" href="conflicts.html" style="display:block;margin-bottom:8px;background:#FFF7E6;border:2px solid #F59E0B;color:#7c2d12;font-weight:800;text-decoration:none">⚠ ${count === 1 ? 'משימה אחת צריכה מחליף' : count + ' משימות צריכות מחליף'}. לחצו לטיפול</a>`;
+  });
+}
 
 /* --- נקודות שבועיות, מוביל ובני משפחה --- */
 const { pointsByUser } = await weeklyPoints();
