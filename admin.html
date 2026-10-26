@@ -366,7 +366,8 @@ function showForm(t) {
                   : await supabase.from('tasks').insert({ ...row, created_by: session.user.id });
     if (res.error) { btn.disabled = false; btn.textContent = 'שמירת משימה'; return err('השמירה נכשלה: ' + res.error.message); }
     if (t && row.kind === 'template') { try { await syncOccurrences({ ...row, id: t.id }); } catch (_) {} }
-    toast('המשימה נשמרה'); showList();
+    if (t) { toast('המשימה נשמרה'); showList(); }
+    else { toast('המשימה נשמרה. אפשר להוסיף עוד אחת'); showForm(null); window.scrollTo(0, 0); }
   };
 }
 
