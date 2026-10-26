@@ -319,6 +319,7 @@ button.avn{background:none;border:0;font:inherit;color:inherit;cursor:pointer;pa
 .avchip{display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:2px solid #D1D5DB;background:#fff;border-radius:12px;padding:5px 10px;font:inherit;font-size:13px;cursor:pointer;text-align:start}
 .avchip b{font-size:14px}
 .avchip.free{border-color:#34C759;background:#EAFBEF;color:#14532d}
+.avchip.part{border-color:#84CC16;background:#F7FEE7;color:#365314}
 .avchip.busy{border-color:#F59E0B;background:#FFF7E6;color:#7c2d12}
 .avchip.abs{border-color:#D1D5DB;background:#F3F4F6;color:#6b7280;cursor:default}
 .avchip.on{box-shadow:0 0 0 3px rgba(37,99,235,.45)}
