@@ -88,8 +88,6 @@ async function showList() {
       <select id="fRepeat"><option value="">יומי ושבועי</option><option value="daily">יומי</option><option value="weekly">שבועי</option><option value="once">חד-פעמי</option></select>
     </div>
     <div id="rows"><p class="empty">טוען...</p></div>
-    <button class="btn secondary" id="gen" type="button" style="width:100%;margin-top:12px">ליצור עכשיו את משימות היום והשבוע</button>
-    <p class="note">השרת יוצר משימות לכל השבוע אוטומטית בכל שעה. הכפתור הזה מאפשר לא לחכות.</p>
     <button class="btn secondary" id="delAllTasks" type="button" style="width:100%;margin-top:8px;color:#B91C1C;border-color:#EF4444">מחיקת כל המשימות (איפוס)</button>
     <p class="note">מסיר את כל המשימות והגדרות המשימות כדי להתחיל מחדש. ההיסטוריה והנקודות נשמרות.</p>
     <div class="sec-title" style="margin-top:22px">הצ'אט המשפחתי</div>
@@ -124,12 +122,6 @@ async function showList() {
     if (e1) { toast('המחיקה נכשלה: ' + e1.message, true); e.target.disabled = false; return; }
     try { const { data: cs } = await supabase.from('task_conflicts').select('id').eq('status', 'open'); for (const c of cs || []) await supabase.rpc('conflict_dismiss', { p_id: c.id }); } catch (_) {}
     toast('כל המשימות הוסרו'); showList();
-  };
-  document.getElementById('gen').onclick = async (e) => {
-    e.target.disabled = true;
-    try { const r = await generateOccurrences(session.user.id); toast(`נוצרו ${r.created} משימות (${r.skipped} כבר היו קיימות${r.past ? `, ${r.past} דולגו כי השעה שלהן להיום עברה` : ''})`); }
-    catch (err) { toast('היצירה נכשלה: ' + (err.message || err), true); }
-    e.target.disabled = false;
   };
   (async () => {
     const { data: st } = await supabase.from('app_settings').select('value').eq('key', 'request_points').maybeSingle();
@@ -204,11 +196,20 @@ async function showList() {
     .or('kind.eq.template,and(kind.eq.occurrence,template_id.is.null)').order('created_at', { ascending: false });
   const el = document.getElementById('rows');
   if (error) { el.innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; return; }
+  const SH = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+  const slotsLine = t => {
+    const parts = (t.slots || []).map(sl => {
+      const nm = byId[sl.assignee_id]?.name || '?', tm = sl.due_time || (sl.due_at ? ilTime(new Date(sl.due_at)) : '');
+      const ex = Object.entries(sl.exc || {}).map(([wd, v]) => `${SH[wd]}: ${byId[(typeof v === 'string' ? v : v?.u)]?.name || '?'}${v && v.t ? ' ' + v.t : ''}`).join(', ');
+      return `<span style="display:inline-block;margin:2px 0 0 8px"><span style="color:#0A58CA;font-weight:800">${esc(nm)}</span> <span dir="ltr" style="display:inline-block">${esc(tm)}</span>${ex ? ` <span style="color:#92400E">(${esc(ex)})</span>` : ''}</span>`;
+    });
+    return parts.length ? `<small style="display:block;margin-top:2px;line-height:1.5">${parts.join('')}</small>` : '';
+  };
   const draw = () => {
     const m = document.getElementById('fMember').value, r = document.getElementById('fRepeat').value;
     const list = data.filter(t => (!m || (t.slots || []).some(s => s.assignee_id === m)) && (!r || t.repeat === r));
     el.innerHTML = list.length ? list.map(t => `<div class="row-item">${iconBox(t, 44)}
-      <div class="tmain"><b>${esc(t.title)}</b><small>${esc(repeatLabel(t))}</small></div>
+      <div class="tmain"><b>${esc(t.title)}</b><small>${esc(repeatLabel(t))}</small>${slotsLine(t)}</div>
       <button class="sqbtn edit" data-edit="${t.id}" aria-label="עריכה">${icon('pencil', 20)}</button>
       <button class="sqbtn del" data-del="${t.id}" aria-label="מחיקה">${icon('trash-2', 20)}</button></div>`).join('')
       : '<p class="empty">אין משימות</p>';
@@ -395,6 +396,7 @@ function showForm(t) {
                   : await supabase.from('tasks').insert({ ...row, created_by: session.user.id });
     if (res.error) { btn.disabled = false; btn.textContent = 'שמירת משימה'; return err('השמירה נכשלה: ' + res.error.message); }
     if (t && row.kind === 'template') { try { await syncOccurrences({ ...row, id: t.id }); } catch (_) {} }
+    if (row.kind === 'template') { try { await generateOccurrences(session.user.id); } catch (_) {} }
     if (t) { toast('המשימה נשמרה'); showList(); }
     else { toast('המשימה נשמרה. אפשר להוסיף עוד אחת'); showForm(null); window.scrollTo(0, 0); }
   };
