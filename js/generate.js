@@ -2,6 +2,7 @@
 // זו אותה לוגיקה ש-n8n יריץ אוטומטית בהמשך. כרגע המנהל מפעיל אותה בכפתור.
 // בטוחה להרצה חוזרת: אינדקס ייחודי (template_id, occurrence_date) מונע כפילות.
 import { supabase, ilDate, addDays, dow, toIsraelDate, weekStart } from './common.js';
+import { normExc } from './events.js';
 
 export function dueAt(t, date, time, ws) {
   if (t.repeat === 'weekly') {
@@ -22,6 +23,18 @@ export function keepFuture(t, slots, now = new Date()) {
   return slots.filter(s => new Date(s.due_at) > now).map((s, i) => ({ ...s, n: i + 1 }));
 }
 
+// חזרות של משימה ליום מסוים. מחליף/שעה ליום (exc, או ov שנבחר בהתנגשות) מחליפים את האחראי ואת השעה. ממוין לפי שעה.
+function makeSlots(t, date, ws, ov = {}) {
+  const list = (t.slots || []).map((s, i) => {
+    const base = dueAt(t, date, s.due_time, ws), dDate = ilDate(new Date(base));
+    const o = normExc(ov[t.id + '|' + (i + 1) + '|' + dDate]) || normExc(s.exc?.[dow(dDate)]);
+    const due = o?.t ? toIsraelDate(dDate, o.t).toISOString() : base;
+    return { assignee_id: o?.u || s.assignee_id, due_at: due, reminded: false, overdue_notified: false, penalized: false };
+  });
+  list.sort((a, b) => a.due_at.localeCompare(b.due_at));
+  return list.map((x, i) => ({ n: i + 1, ...x }));
+}
+
 export async function generateOccurrences(createdBy) {
   const now = new Date();
   const today = ilDate(now);
@@ -32,8 +45,8 @@ export async function generateOccurrences(createdBy) {
   // מחליפים שההורים בחרו מראש ליום מסוים (התנגשות יומן)
   const ov = {};
   try {
-    const { data: cs } = await supabase.from('task_conflicts').select('template_id,slot_n,date,substitute_id').eq('ref_kind', 'template').eq('status', 'resolved').gte('date', today);
-    for (const c of cs || []) if (c.substitute_id) ov[c.template_id + '|' + c.slot_n + '|' + c.date] = c.substitute_id;
+    const { data: cs } = await supabase.from('task_conflicts').select('template_id,slot_n,date,substitute_id,substitute_time').eq('ref_kind', 'template').eq('status', 'resolved').gte('date', today);
+    for (const c of cs || []) if (c.substitute_id) ov[c.template_id + '|' + c.slot_n + '|' + c.date] = { u: c.substitute_id, t: c.substitute_time || null };
   } catch (e) { /* בלי הרשאה או בלי הטבלה: ממשיכים רגיל */ }
   const lastDay = addDays(ws.dateStr, 7); // יום שישי הבא: כל השבוע מוצג מראש
   const days = [];
@@ -41,13 +54,7 @@ export async function generateOccurrences(createdBy) {
   for (const t of templates || []) {
     if (t.repeat !== 'daily' && t.repeat !== 'weekly') continue;
     for (const date of (t.repeat === 'daily' ? days : [ws.dateStr])) {
-      const all = (t.slots || []).map((s, i) => {
-        const due = dueAt(t, date, s.due_time, ws);
-        return {
-          n: i + 1, assignee_id: ov[t.id + '|' + (i + 1) + '|' + ilDate(new Date(due))] || s.exc?.[dow(ilDate(new Date(due)))] || s.assignee_id, due_at: due,
-          reminded: false, overdue_notified: false, penalized: false
-        };
-      });
+      const all = makeSlots(t, date, ws, ov);
       const slots = keepFuture(t, all, now);
       if (!slots.length) { past++; continue; }
       const row = {
@@ -67,10 +74,7 @@ export async function generateOccurrences(createdBy) {
 }
 
 export function buildSlots(t, date, ws) {
-  return (t.slots || []).map((s, i) => ({
-    n: i + 1, assignee_id: s.exc?.[dow(date)] || s.assignee_id, due_at: dueAt(t, date, s.due_time, ws),
-    reminded: false, overdue_notified: false, penalized: false
-  }));
+  return makeSlots(t, date, ws);
 }
 
 const COPY = ['subject_id','room','title','description','tips','icon','color','points','requires_photo','times_required','late_fraction',

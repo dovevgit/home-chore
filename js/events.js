@@ -56,3 +56,22 @@ export async function findConflicts({ repeat, weekday, date, slots }, profiles) 
   }
   return [...out];
 }
+
+// exc / מחליף: מחרוזת (מזהה משתמש) או {u, t} (משתמש ושעה). מחזיר {u, t} או null.
+export function normExc(v) { return !v ? null : typeof v === 'string' ? { u: v, t: null } : { u: v.u || null, t: v.t || null }; }
+
+// כשאין מי שפנוי בשעה: מציע לכל משתמש את השעה הקרובה ביותר שבה הוא פנוי באותו יום.
+// busyFn(userId, 'HH:MM') מחזיר null אם פנוי. מחזיר [{u, t, d}] לפי מרחק מהשעה המקורית.
+export function suggestTimes(users, time, busyFn, { step = 15, from = '06:00', to = '22:00', limit = 4 } = {}) {
+  const toMin = x => { const [h, m] = x.split(':').map(Number); return h * 60 + m; };
+  const fmt = n => String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+  const base = toMin(time), lo = toMin(from), hi = toMin(to), out = [];
+  for (const u of users) {
+    let best = null;
+    for (let d = step; d <= 16 * 60 && !best; d += step) {
+      for (const m of [base - d, base + d]) if (m >= lo && m <= hi && !busyFn(u, fmt(m)) && (!best || Math.abs(m - base) < Math.abs(best - base))) best = m;
+    }
+    if (best != null) out.push({ u, t: fmt(best), d: Math.abs(best - base) });
+  }
+  return out.sort((a, b) => a.d - b.d).slice(0, limit);
+}
