@@ -19,7 +19,7 @@
 <script type="module">
 import { initPage, supabase, esc, icon, iconBox, avatar, ilDate, ilTime, toIsraelDate, addDays, dow, CARD_COLORS, ROOMS } from './js/common.js';
 import { TASK_ICONS } from './js/icons.js';
-import { findConflicts, loadEvents, availability, hm } from './js/events.js';
+import { findConflicts, loadEvents, availability, hm, normExc, suggestTimes } from './js/events.js';
 import { generateOccurrences, syncOccurrences } from './js/generate.js';
 
 const { session, me, profiles, isAdmin } = await initPage({ title: 'ניהול משימות', back: 'index.html' });
@@ -314,10 +314,21 @@ function showForm(t) {
     const days = [0,1,2,3,4,5,6].filter(wd => busyWd(s.assignee_id, wd, s.time));
     if (!days.length) return '';
     const who = byId[s.assignee_id]?.name || '';
-    return days.map(wd => `<div class="avrow exc"><small><b>${esc(who)}</b> תפוס/ה בימי ${WEEKDAYS[wd]} (${esc(busyWd(s.assignee_id, wd, s.time))}). מי יחליף/ה ביום ${WEEKDAYS[wd]}?</small>${allowed.filter(u => u.id !== s.assignee_id).map(u => {
-      const b = busyWd(u.id, wd, s.time);
-      return `<button type="button" class="avchip ${b ? 'busy' : 'free'} ${s.exc[wd] === u.id ? 'on' : ''}" data-ei="${i}" data-ewd="${wd}" data-eu="${u.id}" ${b ? 'disabled' : ''}><b>${esc(u.name)}</b><span>${b ? '✗ ' + esc(b) : '✓ פנוי/ה'}</span></button>`;
-    }).join('')}</div>`).join('');
+    const chip = (wd, u, cls, note, attrs) => `<button type="button" class="avchip ${cls}" ${attrs}><b>${esc(u.name)}</b><span>${note}</span></button>`;
+    return days.map(wd => {
+      const cur = normExc(s.exc[wd]);
+      const others = allowed.filter(u => u.id !== s.assignee_id);
+      const free = others.filter(u => !busyWd(u.id, wd, s.time));
+      let html = `<div class="avrow exc"><small><b>${esc(who)}</b> תפוס/ה בימי ${WEEKDAYS[wd]} (${esc(busyWd(s.assignee_id, wd, s.time))}). מי יחליף/ה ביום ${WEEKDAYS[wd]}?</small>`;
+      html += free.map(u => chip(wd, u, `free ${cur && cur.u === u.id && !cur.t ? 'on' : ''}`, '✓ פנוי/ה', `data-ei="${i}" data-ewd="${wd}" data-eu="${u.id}"`)).join('');
+      if (!free.length) {
+        const sug = suggestTimes(allowed.map(u => u.id), s.time, (uid, t) => busyWd(uid, wd, t));
+        html += `<small style="color:#B91C1C;font-weight:800">אין מי שפנוי ב-${s.time} ביום ${WEEKDAYS[wd]}. אפשר לשנות את השעה ליום הזה בלבד:</small>`;
+        html += sug.length ? sug.map(x => chip(wd, byId[x.u], `free ${cur && cur.u === x.u && cur.t === x.t ? 'on' : ''}`, `✓ פנוי/ה ב-${x.t}`, `data-ei="${i}" data-ewd="${wd}" data-eu="${x.u}" data-et="${x.t}"`)).join('') : '<small>לא נמצאה שעה פנויה באותו יום</small>';
+        html += `<small>או לבחור מישהו תפוס בכל זאת:</small>` + others.map(u => chip(wd, u, `busy ${cur && cur.u === u.id && !cur.t ? 'on' : ''}`, '✗ ' + esc(busyWd(u.id, wd, s.time)), `data-ei="${i}" data-ewd="${wd}" data-eu="${u.id}"`)).join('');
+      }
+      return html + '</div>';
+    }).join('');
   };
   const drawSlots = () => {
     const n = Math.max(1, Math.min(10, parseInt($('times').value) || 1));
@@ -329,14 +340,14 @@ function showForm(t) {
     slots.forEach(s => { if (!allowed.some(u => u.id === s.assignee_id)) s.assignee_id = (free[0] || allowed[0])?.id || ''; });
     slots.forEach(s => {
       s.exc = s.exc || {};
-      for (const k of Object.keys(s.exc)) if ($('repeat').value !== 'daily' || !busyWd(s.assignee_id, +k, s.time) || s.exc[k] === s.assignee_id || !allowed.some(u => u.id === s.exc[k])) delete s.exc[k];
+      for (const k of Object.keys(s.exc)) { const x = normExc(s.exc[k]); if ($('repeat').value !== 'daily' || !busyWd(s.assignee_id, +k, s.time) || !x || (x.u === s.assignee_id && !x.t) || !allowed.some(u => u.id === x.u)) delete s.exc[k]; }
     });
     $('slots').innerHTML = slots.map((s, i) => `<div class="slotrow">
       <select class="sel" data-a="${i}" ${allowed.length === 1 ? 'disabled' : ''}>${allowed.map(u => { const ab = absentOn(u.id, cd); return `<option value="${u.id}" ${s.assignee_id === u.id ? 'selected' : ''} ${ab && s.assignee_id !== u.id ? 'disabled' : ''}>${esc(u.name)}${ab ? ` (נעדר/ת: ${esc(ab.reason)})` : ''}</option>`; }).join('')}</select>
       <input type="time" data-t="${i}" value="${s.time}" dir="ltr"></div>${availHtml(i, s, allowed, cd)}${excHtml(i, s, allowed)}`).join('');
     $('slots').querySelectorAll('[data-a]').forEach(el => el.onchange = () => slots[el.dataset.a].assignee_id = el.value);
     $('slots').querySelectorAll('[data-t]').forEach(el => el.onchange = () => { slots[el.dataset.t].time = el.value; drawSlots(); });
-    $('slots').querySelectorAll('[data-eu]').forEach(el => el.onclick = () => { slots[el.dataset.ei].exc[el.dataset.ewd] = el.dataset.eu; drawSlots(); });
+    $('slots').querySelectorAll('[data-eu]').forEach(el => el.onclick = () => { slots[el.dataset.ei].exc[el.dataset.ewd] = el.dataset.et ? { u: el.dataset.eu, t: el.dataset.et } : el.dataset.eu; drawSlots(); });
     $('slots').querySelectorAll('[data-pick]').forEach(el => el.onclick = () => { slots[el.dataset.i].assignee_id = el.dataset.pick; drawSlots(); });
   };
   const toggle = () => { $('weekdayBox').classList.toggle('hidden', $('repeat').value !== 'weekly'); $('dateBox').classList.toggle('hidden', $('repeat').value !== 'once'); };

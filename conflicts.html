@@ -32,7 +32,7 @@
 </main>
 <script type="module">
 import { initPage, supabase, esc, avatar, ilDate, addDays, dow, showToast } from './js/common.js';
-import { hm } from './js/events.js';
+import { hm, suggestTimes } from './js/events.js';
 const { me, profiles, isAdmin } = await initPage({ title: 'התנגשויות בשיבוץ', back: 'index.html', menu: false });
 const $ = id => document.getElementById(id);
 const byId = Object.fromEntries(profiles.map(p => [p.id, p]));
@@ -64,10 +64,16 @@ function draw(open, done) {
   $('msg').style.display = open.length ? 'none' : '';
   $('msg').textContent = 'אין התנגשויות פתוחות. הכל משובץ ✓';
   $('open').innerHTML = open.map(c => {
-    const chips = users.filter(u => u.id !== c.assignee_id).map(u => {
-      const b = busy(u.id, c.date, hm(c.time));
-      return `<button type="button" class="avchip ${b ? 'busy' : 'free'}" data-id="${c.id}" data-u="${u.id}" ${b ? 'disabled' : ''}><b>${esc(u.name)}</b><span>${b ? '✗ ' + esc(b) : '✓ פנוי/ה'}</span></button>`;
-    }).join('');
+    const others = users.filter(u => u.id !== c.assignee_id);
+    const chip = (u, b, extra = '', note = '') => `<button type="button" class="avchip ${b ? 'busy' : 'free'}" data-id="${c.id}" data-u="${u.id}" ${extra}><b>${esc(u.name)}</b><span>${note || (b ? '✗ ' + esc(b) : '✓ פנוי/ה')}</span></button>`;
+    const free = others.filter(u => !busy(u.id, c.date, hm(c.time)));
+    let chips = free.map(u => chip(u, null)).join('');
+    if (!free.length) {
+      const sug = suggestTimes(users.map(u => u.id), hm(c.time), (uid, t) => busy(uid, c.date, t));
+      chips = `<small style="width:100%;color:#B91C1C;font-weight:800">אין מי שפנוי ב-${hm(c.time)}. אפשר לשנות את השעה ליום הזה בלבד:</small>`
+        + (sug.length ? sug.map(x => chip(byId[x.u], null, `data-t="${x.t}"`, `✓ פנוי/ה ב-${x.t}`)).join('') : '<small>לא נמצאה שעה פנויה באותו יום</small>')
+        + `<small style="width:100%">או לבחור מישהו תפוס בכל זאת:</small>` + others.map(u => chip(u, busy(u.id, c.date, hm(c.time)))).join('');
+    }
     return `<div class="card cf"><h3><span>${esc(c.title)}</span><small>${dayName(c.date)} ב-${hm(c.time)}</small></h3>
       <div class="why">${esc(byId[c.assignee_id]?.name || '')} תפוס/ה: ${esc(c.reason || '')}</div>
       <div class="lab">מי יחליף/ה ${dayName(c.date)} בלבד?</div>
@@ -76,10 +82,11 @@ function draw(open, done) {
   }).join('');
   $('doneWrap').innerHTML = done.length ? `<div class="sec-title cfsec">טופלו לאחרונה</div>` + done.map(c => `
     <div class="card cf done"><h3><span>${esc(c.title)}</span><small>${dayName(c.date)} ב-${hm(c.time)}</small></h3>
-    <div>${c.status === 'resolved' ? `${esc(byId[c.substitute_id]?.name || '')} מחליף/ה את ${esc(byId[c.assignee_id]?.name || '')}` : `נשאר אצל ${esc(byId[c.assignee_id]?.name || '')}`}</div></div>`).join('') : '';
+    <div>${c.status === 'resolved' ? `${esc(byId[c.substitute_id]?.name || '')} מחליף/ה את ${esc(byId[c.assignee_id]?.name || '')}${c.substitute_time ? ' (בשעה ' + esc(c.substitute_time) + ')' : ''}` : `נשאר אצל ${esc(byId[c.assignee_id]?.name || '')}`}</div></div>`).join('') : '';
   document.querySelectorAll('[data-u]').forEach(b => b.onclick = async () => {
     b.disabled = true;
-    const { error } = await supabase.rpc('conflict_resolve', { p_id: b.dataset.id, p_user: b.dataset.u });
+    const args = { p_id: b.dataset.id, p_user: b.dataset.u }; if (b.dataset.t) args.p_time = b.dataset.t;
+    const { error } = await supabase.rpc('conflict_resolve', args);
     if (error) { showToast(error.message, true); return load(); }
     showToast('המחליף/ה נקבע/ה ליום הזה ✓'); load();
   });
