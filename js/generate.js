@@ -19,7 +19,6 @@ export function dueAt(t, date, time, ws) {
 
 // משימה יומית שנוצרת באמצע היום: חזרות ששעתן כבר עברה לא נוצרות להיום (כדי שלא יופיע איחור מיידי).
 export function keepFuture(t, slots, now = new Date()) {
-  if (t.repeat !== 'daily') return slots;
   return slots.filter(s => new Date(s.due_at) > now).map((s, i) => ({ ...s, n: i + 1 }));
 }
 
@@ -60,7 +59,7 @@ export async function generateOccurrences(createdBy) {
       const row = {
         kind: 'occurrence', template_id: t.id, subject_id: t.subject_id, title: t.title, description: t.description,
         tips: t.tips, room: t.room, icon: t.icon, color: t.color, points: t.points, requires_photo: t.requires_photo,
-        times_required: t.repeat === 'daily' ? slots.length : t.times_required, repeat: t.repeat, weekday: t.weekday, late_fraction: t.late_fraction,
+        times_required: (t.repeat === 'daily' || slots.length < all.length) ? slots.length : t.times_required, repeat: t.repeat, weekday: t.weekday, late_fraction: t.late_fraction,
         penalty_points: t.penalty_points, remind_before_minutes: t.remind_before_minutes,
         reminder_text: t.reminder_text, overdue_text: t.overdue_text, slots, occurrence_date: date, created_by: createdBy
       };
@@ -92,7 +91,7 @@ export async function syncOccurrences(template) {
     for (const k of COPY) patch[k] = template[k];
     if (!count) {
       const s = keepFuture(template, buildSlots(template, o.occurrence_date, ws));
-      if (s.length) { patch.slots = s; patch.times_required = template.repeat === 'daily' ? s.length : template.times_required; }
+      if (s.length) { patch.slots = s; patch.times_required = template.repeat === 'daily' ? s.length : Math.min(s.length, template.times_required); }
       else { delete patch.times_required; }
       patch.weekday = template.weekday;
     }
