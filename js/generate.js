@@ -35,29 +35,33 @@ export async function generateOccurrences(createdBy) {
     const { data: cs } = await supabase.from('task_conflicts').select('template_id,slot_n,date,substitute_id').eq('ref_kind', 'template').eq('status', 'resolved').gte('date', today);
     for (const c of cs || []) if (c.substitute_id) ov[c.template_id + '|' + c.slot_n + '|' + c.date] = c.substitute_id;
   } catch (e) { /* בלי הרשאה או בלי הטבלה: ממשיכים רגיל */ }
+  const lastDay = addDays(ws.dateStr, 7); // יום שישי הבא: כל השבוע מוצג מראש
+  const days = [];
+  for (let d = today; d <= lastDay; d = addDays(d, 1)) days.push(d);
   for (const t of templates || []) {
     if (t.repeat !== 'daily' && t.repeat !== 'weekly') continue;
-    const date = t.repeat === 'daily' ? today : ws.dateStr;
-    const all = (t.slots || []).map((s, i) => {
-      const due = dueAt(t, date, s.due_time, ws);
-      return {
-        n: i + 1, assignee_id: ov[t.id + '|' + (i + 1) + '|' + ilDate(new Date(due))] || s.exc?.[dow(ilDate(new Date(due)))] || s.assignee_id, due_at: due,
-        reminded: false, overdue_notified: false, penalized: false
+    for (const date of (t.repeat === 'daily' ? days : [ws.dateStr])) {
+      const all = (t.slots || []).map((s, i) => {
+        const due = dueAt(t, date, s.due_time, ws);
+        return {
+          n: i + 1, assignee_id: ov[t.id + '|' + (i + 1) + '|' + ilDate(new Date(due))] || s.exc?.[dow(ilDate(new Date(due)))] || s.assignee_id, due_at: due,
+          reminded: false, overdue_notified: false, penalized: false
+        };
+      });
+      const slots = keepFuture(t, all, now);
+      if (!slots.length) { past++; continue; }
+      const row = {
+        kind: 'occurrence', template_id: t.id, subject_id: t.subject_id, title: t.title, description: t.description,
+        tips: t.tips, room: t.room, icon: t.icon, color: t.color, points: t.points, requires_photo: t.requires_photo,
+        times_required: t.repeat === 'daily' ? slots.length : t.times_required, repeat: t.repeat, weekday: t.weekday, late_fraction: t.late_fraction,
+        penalty_points: t.penalty_points, remind_before_minutes: t.remind_before_minutes,
+        reminder_text: t.reminder_text, overdue_text: t.overdue_text, slots, occurrence_date: date, created_by: createdBy
       };
-    });
-    const slots = keepFuture(t, all, now);
-    if (!slots.length) { past++; continue; }
-    const row = {
-      kind: 'occurrence', template_id: t.id, subject_id: t.subject_id, title: t.title, description: t.description,
-      tips: t.tips, room: t.room, icon: t.icon, color: t.color, points: t.points, requires_photo: t.requires_photo,
-      times_required: t.repeat === 'daily' ? slots.length : t.times_required, repeat: t.repeat, weekday: t.weekday, late_fraction: t.late_fraction,
-      penalty_points: t.penalty_points, remind_before_minutes: t.remind_before_minutes,
-      reminder_text: t.reminder_text, overdue_text: t.overdue_text, slots, occurrence_date: date, created_by: createdBy
-    };
-    const { error: e } = await supabase.from('tasks').insert(row);
-    if (!e) created++;
-    else if (e.code === '23505') skipped++;
-    else throw e;
+      const { error: e } = await supabase.from('tasks').insert(row);
+      if (!e) created++;
+      else if (e.code === '23505') skipped++;
+      else throw e;
+    }
   }
   return { created, skipped, past };
 }
