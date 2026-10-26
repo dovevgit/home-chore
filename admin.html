@@ -294,10 +294,17 @@ function showForm(t) {
     if (allowed.length < 2 || !s.time) return '';
     const cur = { repeat: $('repeat').value, weekday: parseInt($('weekday').value), date: cd };
     const av = availability(evs, cur, s.time, allowed.map(u => u.id));
-    return `<div class="avrow"><small>מי פנוי ב-${s.time}:</small>${allowed.map(u => {
+    const daily = $('repeat').value === 'daily', SH = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+    return `<div class="avrow"><small>מי פנוי ב-${s.time}${daily ? ' (בכל יום)' : ''}:</small>${allowed.map(u => {
       const ab = absentOn(u.id, cd), b = av[u.id];
-      const st = ab ? 'abs' : b ? 'busy' : 'free', note = ab ? `נעדר/ת: ${esc(ab.reason)}` : b ? esc(b.title) : 'פנוי/ה';
-      return `<button type="button" class="avchip ${st} ${s.assignee_id === u.id ? 'on' : ''}" data-i="${i}" data-pick="${u.id}" ${ab ? 'disabled' : ''}><b>${esc(u.name)}</b><span>${st === 'free' ? '✓ ' : '✗ '}${note}</span></button>`;
+      let st = ab ? 'abs' : b ? 'busy' : 'free', note = ab ? `נעדר/ת: ${esc(ab.reason)}` : b ? esc(b.title) : 'פנוי/ה';
+      if (daily && !ab) {
+        const days = [0, 1, 2, 3, 4, 5, 6].filter(wd => busyWd(u.id, wd, s.time));
+        if (!days.length) { st = 'free'; note = 'פנוי/ה כל יום'; }
+        else if (days.length === 7) { st = 'busy'; note = 'תפוס/ה כל יום'; }
+        else { st = 'part'; note = `פנוי/ה חוץ מ${days.map(d => SH[d]).join(', ')}`; }
+      }
+      return `<button type="button" class="avchip ${st} ${s.assignee_id === u.id ? 'on' : ''}" data-i="${i}" data-pick="${u.id}" ${ab ? 'disabled' : ''}><b>${esc(u.name)}</b><span>${st === 'free' || st === 'part' ? '✓ ' : '✗ '}${note}</span></button>`;
     }).join('')}</div>`;
   };
   // בימים שבהם האחראי תפוס (פעילות שבועית קבועה) מציעים מחליף קבוע לאותו יום בשבוע. רק למשימה יומית.
