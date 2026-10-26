@@ -95,6 +95,12 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradi
 .gsnd{position:fixed;bottom:max(12px,env(safe-area-inset-bottom,0px));inset-inline-start:14px;z-index:30;font-family:inherit;font-weight:800;font-size:14px;color:var(--gink);background:#fff;border:3px solid var(--gline);border-radius:999px;padding:6px 12px;cursor:pointer;box-shadow:0 3px 10px rgba(30,60,140,.25)}
 .gerr{color:#B91C1C;font-weight:800;text-align:center;margin:6px 0}
 @media (prefers-reduced-motion:reduce){#gm *,.gvig{animation:none!important;transition:none!important}}
+.gfh{margin:10px 0 0;font-size:16px;text-align:center;color:var(--gink2)}
+.gfams{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:8px}
+.gfam{display:flex;flex-direction:column;align-items:center;gap:3px;width:76px;padding:8px 4px;border-radius:16px;border:3px solid var(--gline);background:#fff;font:inherit;font-size:14px;font-weight:800;color:var(--gink);cursor:pointer}
+.gfam small{font-size:12px;color:var(--gviolet)}
+.gfam:disabled{opacity:.6;cursor:default}
+.gfam:focus-visible{outline:3px solid var(--gviolet);outline-offset:2px}
 /* בלי הפס הכחול העליון במשחקים, כדי שלא יפריע */
 header.bar{display:none}body{padding-top:10px}
 .gback{display:block;max-width:460px;margin:0 auto;padding:4px 14px 8px;font:inherit;font-size:15px;font-weight:800;color:#8a8aa0;text-decoration:none}
