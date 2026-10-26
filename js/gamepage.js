@@ -60,13 +60,15 @@ function confetti(n = 90) {
 }
 
 /* ---- מצב ---- */
-let roomId = GT ? gref : null, ST = null, off = 0, viewKey = '', cnt = null, mySub = false, subRound = -1, ticked = '', lastLow = -1, TIE = null, isGiver = false, errMsg = '';
+let roomId = GT ? gref : null, ST = null, off = 0, viewKey = '', cnt = null, mySub = false, subRound = -1, ticked = '', lastLow = -1, TIE = null, isGiver = false, errMsg = '', INV = null;
+const loadInv = async () => { try { const d = await rpc('game_invited', { p_room: roomId }); INV = new Set(d || []); } catch (_) { INV = new Set(); } viewKey = ''; render(); };
 const sNow = () => Date.now() + off;
 const head = () => `<h1 class="gh1"><span>חי</span> <span>צומח</span> <span>דומם</span></h1><div class="gtag">משחק המשפחה</div>`;
 const rpc = async (fn, args) => { const { data, error } = GT ? await gcall(fn, args) : await supabase.rpc(fn, args); if (error) throw error; return data; };
 const errText = e => {
   const m = String(e?.message || e || '');
   if (m.includes('open_game_exists')) return 'כבר יש משחק פתוח. אפשר להצטרף אליו.';
+  if (m.includes('not_invited')) return 'לא הוזמנת למשחק הזה.';
   if (m.includes('prize_not_allowed')) return 'רק אבא יכול לפתוח משחק עם פרס.';
   if (m.includes('not_host')) return 'רק מנהל המשחק יכול לעשות את זה.';
   if (m.includes('game_over')) return 'המשחק כבר הסתיים.';
@@ -106,7 +108,7 @@ function computeKey() {
   if (m.status === 'pending') return 'pending';
   const elig = m.joined_round <= r.round;
   const sub = (mySub && subRound === r.round) || (ST.submitted || []).includes(me.id);
-  if (r.status === 'lobby') return 'lobby:' + ST.players.map(p => p.user_id + p.status).join(',');
+  if (r.status === 'lobby') return 'lobby:' + (INV ? INV.size : 'x') + ':' + ST.players.map(p => p.user_id + p.status).join(',');
   if (r.status === 'wait') return 'wait:' + r.round + ':' + elig;
   if (r.status === 'play') return 'play:' + r.round + ':' + (sNow() < r.play_at ? 'let' : 'form') + ':' + elig + ':' + sub;
   if (r.status === 'reveal') return 'reveal:' + r.round;
@@ -131,12 +133,10 @@ function build(key) {
     if (GT) { set(`${head()}<div class="gcard main"><p class="gsub">המשחק הסתיים</p><p class="ghint">תודה ששיחקת!</p></div>`); return; }
     set(`${head()}<div class="gcard main"><p class="gsub">אין משחק פתוח עכשיו</p>
       ${isGiver ? `<div class="gprize"><label for="gPrize">פרס למנצח הכללי (בנקודות)</label><input id="gPrize" type="number" inputmode="numeric" min="0" max="1000" placeholder="ריק = משחק בלי פרס"></div>` : ''}
-      <p class="ghint">פותחים משחק, וכל המשפחה מקבלת הזמנה</p>
-      <button class="gbtn go" id="gOpen" type="button">פתח משחק והזמן את המשפחה</button>
-      <button class="gbtn ghost" id="gOpenP" type="button">משחק פרטי: רק לאורחים שמקבלים קישור</button></div>`);
+      <p class="ghint">פותחים משחק, ואז בוחרים את מי להזמין: בני משפחה או אורח בקישור</p>
+      <button class="gbtn go" id="gOpen" type="button">פתח משחק</button></div>`);
     const prizeVal = () => isGiver ? Math.max(0, Math.min(1000, parseInt($('#gPrize')?.value) || 0)) : 0;
     bind('#gOpen', () => act('game_open', { p_prize: prizeVal(), p_private: false }));
-    bind('#gOpenP', () => act('game_open', { p_prize: prizeVal(), p_private: true }, () => inviteGuest('game')));
     return;
   }
   if (key === 'tie') {
@@ -169,10 +169,19 @@ function build(key) {
     const joined = ST.players.filter(p => p.status === 'joined'), pend = ST.players.filter(p => p.status === 'pending');
     const tags = {}; joined.forEach(p => { tags[p.user_id] = p.user_id === r.host_id ? '<span class="gtag2 mgr">מנהל/ת</span>' : '<span class="gtag2">מחובר/ת</span>'; });
     pend.forEach(p => { tags[p.user_id] = '<span class="gtag2 wait">ממתין/ה לאישור</span>'; });
-    set(`${head()}<div class="gcard main"><p class="gsub">${nm(r.host_id)} פתח/ה משחק. מי שמצטרף נכנס!</p>
+    set(`${head()}<div class="gcard main"><p class="gsub">${nm(r.host_id)} פתח/ה משחק. מי שהוזמן ולוחץ "הצטרף" נכנס</p>
       ${playersRow(joined.concat(pend), tags)}${prizeBadge(r)}
+      ${host && !GT ? `<h3 class="gfh">הזמן מהמשפחה</h3><div class="gfams">${profiles.filter(p => p.is_user !== false && p.active !== false && p.id !== me.id).map(p => {
+        const inG = joined.some(x => x.user_id === p.id), inv = INV && INV.has(p.id);
+        return `<button class="gfam" data-id="${p.id}" type="button" ${inG || inv ? 'disabled' : ''}>${avatar(p, 46)}<span>${esc(p.name)}</span><small>${inG ? 'במשחק' : inv ? 'הוזמן/ה ✓' : 'הזמן'}</small></button>`; }).join('')}</div>` : ''}
       ${host ? `<button class="gbtn go" id="gStart" type="button">התחל משחק</button><button class="gbtn ghost" id="gClose" type="button">סגירת המשחק</button>`
              : `<p class="ghint">מחכים שהמנהל יתחיל</p><button class="gbtn ghost" id="gLeave" type="button">יציאה מהמשחק</button>`}</div>`);
+    if (host && !GT && INV === null) loadInv();
+    document.querySelectorAll('.gfam:not([disabled])').forEach(b => b.onclick = async () => {
+      b.disabled = true;
+      try { await rpc('game_invite', { p_room: roomId, p_user: b.dataset.id }); INV = INV || new Set(); INV.add(b.dataset.id); showToast('ההזמנה נשלחה'); viewKey = ''; render(); }
+      catch (e) { showToast(errText(e), true); b.disabled = false; }
+    });
     bind('#gStart', () => { sfx.start(); act('game_start_round', { p_room: roomId }); });
     bind('#gClose', () => act('game_close', { p_room: roomId }));
     bind('#gLeave', () => act('game_leave', { p_room: roomId }));
