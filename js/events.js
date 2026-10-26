@@ -49,6 +49,7 @@ export async function findConflicts({ repeat, weekday, date, slots }, profiles) 
   for (const s of slots) {
     for (const e of data.filter(x => x.user_id === s.assignee_id)) {
       if (!(hm(e.start_time) <= s.time && s.time < hm(e.end_time))) continue;
+      if (repeat === 'daily' && e.repeat === 'weekly' && s.exc && s.exc[e.weekday]) continue; // יש מחליף קבוע לאותו יום
       const day = hitDay(e, { repeat, weekday, date }, today, horizon);
       if (day) out.add(`${name(s.assignee_id)} בפעילות "${e.title}" (${day}, ${hm(e.start_time)}–${hm(e.end_time)}), והמשימה נקבעה ל-${s.time}`);
     }

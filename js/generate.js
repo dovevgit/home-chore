@@ -29,13 +29,22 @@ export async function generateOccurrences(createdBy) {
   const { data: templates, error } = await supabase.from('tasks').select('*').eq('kind', 'template').eq('active', true);
   if (error) throw error;
   let created = 0, skipped = 0, past = 0;
+  // מחליפים שההורים בחרו מראש ליום מסוים (התנגשות יומן)
+  const ov = {};
+  try {
+    const { data: cs } = await supabase.from('task_conflicts').select('template_id,slot_n,date,substitute_id').eq('ref_kind', 'template').eq('status', 'resolved').gte('date', today);
+    for (const c of cs || []) if (c.substitute_id) ov[c.template_id + '|' + c.slot_n + '|' + c.date] = c.substitute_id;
+  } catch (e) { /* בלי הרשאה או בלי הטבלה: ממשיכים רגיל */ }
   for (const t of templates || []) {
     if (t.repeat !== 'daily' && t.repeat !== 'weekly') continue;
     const date = t.repeat === 'daily' ? today : ws.dateStr;
-    const all = (t.slots || []).map((s, i) => ({
-      n: i + 1, assignee_id: s.assignee_id, due_at: dueAt(t, date, s.due_time, ws),
-      reminded: false, overdue_notified: false, penalized: false
-    }));
+    const all = (t.slots || []).map((s, i) => {
+      const due = dueAt(t, date, s.due_time, ws);
+      return {
+        n: i + 1, assignee_id: ov[t.id + '|' + (i + 1) + '|' + ilDate(new Date(due))] || s.exc?.[dow(ilDate(new Date(due)))] || s.assignee_id, due_at: due,
+        reminded: false, overdue_notified: false, penalized: false
+      };
+    });
     const slots = keepFuture(t, all, now);
     if (!slots.length) { past++; continue; }
     const row = {
@@ -55,7 +64,7 @@ export async function generateOccurrences(createdBy) {
 
 export function buildSlots(t, date, ws) {
   return (t.slots || []).map((s, i) => ({
-    n: i + 1, assignee_id: s.assignee_id, due_at: dueAt(t, date, s.due_time, ws),
+    n: i + 1, assignee_id: s.exc?.[dow(date)] || s.assignee_id, due_at: dueAt(t, date, s.due_time, ws),
     reminded: false, overdue_notified: false, penalized: false
   }));
 }
