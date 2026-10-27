@@ -2,6 +2,8 @@
 // מצלמה מתחילה בתקריב על הבית ועולה למעלה אל הלוגו ובני המשפחה, ואז ברק וניצוצות.
 // מוצג פעם אחת לכל פתיחה (sessionStorage), לא בכל מעבר בין מסכים.
 (function () {
+  // אורח שהוזמן למשחק (קישור עם ?t=) רואה את הספלש של המשחק עצמו, לא את ספלש הבית
+  try { if (new URLSearchParams(location.search).get('t') && /\/(blackjack|checkers|battleship|poker|backgammon|game|stratego)\.html$/.test(location.pathname)) return; } catch (_) {}
   try { if (sessionStorage.getItem('splashShown')) return; sessionStorage.setItem('splashShown', '1'); } catch (_) {}
   var AR = 941 / 1672, TOTAL = 4000;
   var css =

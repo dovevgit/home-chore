@@ -1,5 +1,6 @@
 import { initPage, supabase, esc, avatar, showToast } from './common.js';
 import { guestToken, guestMode, inviteGuest } from './guest.js';
+import { gameSplash } from './gamesplash.js';
 
 /* ================= הכנה: בן משפחה או אורח ================= */
 const GT = guestToken();
@@ -13,8 +14,8 @@ function mkSplash() {
   sp.innerHTML = '<div class="st-sp-art"></div><div class="st-sp-skip" id="spHint">לחץ כדי להתחיל</div>';
   document.body.append(sp);
 }
-if (gid && !GT) mkSplash();
-if (GT) { const g = await guestMode('st', GT); me = g.me; gid = g.ref; gcall = g.call; mkSplash(); }
+if (!GT) mkSplash();
+if (GT) { gameSplash('stratego-splash.jpg'); const g = await guestMode('st', GT); me = g.me; gid = g.ref; gcall = g.call; }
 else {
   const r = await initPage({ active: 'games', title: 'Royal Front' });
   profiles = r.profiles || [];
