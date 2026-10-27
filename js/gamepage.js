@@ -1,5 +1,7 @@
 import { initPage, supabase, esc, avatar, showToast } from './common.js';
 import { guestToken, guestMode, inviteGuest } from './guest.js';
+import { gameSplash } from './gamesplash.js';
+gameSplash('game-splash.jpg');
 
 const ICO={
  'חי':`<svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true"><path d="M10 26 L14 6 L28 17Z" fill="#FF9F43"/><path d="M54 26 L50 6 L36 17Z" fill="#FF9F43"/><path d="M13 14 L15 9 L22 15Z" fill="#FFC9A0"/><path d="M51 14 L49 9 L42 15Z" fill="#FFC9A0"/><ellipse cx="32" cy="37" rx="24" ry="21" fill="#FFB35C"/><ellipse cx="32" cy="46" rx="11" ry="8" fill="#FFE2C2"/><circle cx="23" cy="34" r="4" fill="#2B2A4C"/><circle cx="41" cy="34" r="4" fill="#2B2A4C"/><circle cx="24.4" cy="32.6" r="1.4" fill="#fff"/><circle cx="42.4" cy="32.6" r="1.4" fill="#fff"/><path d="M29 41 h6 l-3 3.4z" fill="#E8567A"/><path d="M32 44.4 v2.2 M32 46.6 q-3 3 -6 1 M32 46.6 q3 3 6 1" stroke="#2B2A4C" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M8 40 h10 M8 45 l9 -2 M56 40 h-10 M56 45 l-9 -2" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><circle cx="16" cy="43" r="4" fill="#FF8FA3" opacity=".55"/><circle cx="48" cy="43" r="4" fill="#FF8FA3" opacity=".55"/></svg>`,

@@ -1,5 +1,7 @@
 import { initPage, supabase, esc, avatar, showToast } from './common.js';
 import { guestToken, guestMode, inviteGuest } from './guest.js';
+import { gameSplash } from './gamesplash.js';
+gameSplash('checkers-splash.jpg');
 import { legalMoves, applyMove, colorOf, counts } from './checkers-rules.js';
 
 const GT = guestToken();
