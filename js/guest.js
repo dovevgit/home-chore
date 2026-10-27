@@ -65,7 +65,7 @@ export async function inviteGuest(kind, onClose) {
     return null;
   }
   const u = new URL(KIND_PAGE[kind], location.href); u.search = ''; u.hash = ''; u.searchParams.set('t', data.token);
-  const link = u.href, msg = `הוזמנת לשחק ${KIND_NAME[kind]} איתנו! הקישור למשחק:\n${link}`;
+  const link = u.href, who = ['checkers', 'bs', 'bg', 'st'].includes(kind) ? 'איתי' : 'איתנו', msg = `הוזמנת לשחק ${KIND_NAME[kind]} ${who}! הקישור למשחק:\n${link}`;
   const m = document.createElement('div');
   m.className = 'modal'; m.style.zIndex = 99;
   m.innerHTML = `<div class="modal-card" style="text-align:center">
