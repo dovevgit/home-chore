@@ -226,7 +226,7 @@ textarea{width:100%;min-height:80px;border:1.5px solid var(--field);border-radiu
 
 .who{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .whochip{display:inline-flex;align-items:center;gap:6px;border:2px solid var(--field);background:#fff;color:var(--text);border-radius:999px;font:inherit;font-weight:700;font-size:15px;padding:4px 12px 4px 8px;cursor:pointer}
-.whochip.on{border-color:var(--blue);background:#EAF3FF;color:#0A58CA}
+.whochip.on{border-color:#F97316;background:#FFE7CC;color:#9A3412;box-shadow:0 0 0 3px rgba(249,115,22,.22)}
 
 .announce{position:relative;margin:46px 0 14px;padding:44px 18px 18px;text-align:center;background:linear-gradient(180deg,#FFF9E0,#FFEFB0);border:4px solid #F5A400;border-radius:22px;box-shadow:0 0 0 3px #FFE08A,0 8px 22px rgba(245,164,0,.45)}
 .announce .trophy{position:absolute;top:-46px;left:50%;transform:translateX(-50%);width:84px;height:84px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 4px 6px rgba(184,110,0,.5))}

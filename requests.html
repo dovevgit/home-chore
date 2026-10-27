@@ -106,7 +106,7 @@ function openForm() {
     <form id="rf" class="form">
       <label for="rb">מה צריך?</label><textarea id="rb" maxlength="300" placeholder="למשל: לקחת אותי לחוג מחר"></textarea>
       <label>למי (אפשר לבחור כמה)</label>
-      <div class="who" id="who"><button type="button" class="whochip on" data-w="">כולם</button>${users.filter(u => u.id !== me).map(u => `<button type="button" class="whochip" data-w="${u.id}">${avatar(u, 26)} ${esc(u.name)}</button>`).join('')}</div>
+      <div class="who" id="who"><button type="button" class="whochip on" data-w="">כולם</button>${users.filter(u => u.id !== me).map(u => `<button type="button" class="whochip on" data-w="${u.id}">${avatar(u, 26)} ${esc(u.name)}</button>`).join('')}</div>
       <div style="display:flex;gap:10px"><div style="flex:1"><label for="rd">תאריך (אופציונלי)</label><input type="date" id="rd" dir="ltr"></div>
         <div style="flex:1"><label for="rh">שעה (אופציונלי)</label><input type="time" id="rh" dir="ltr"></div></div>
       <p class="note" style="text-align:start">מי שיבצע את הבקשה יקבל ${pts} נקודות.</p>
@@ -117,17 +117,17 @@ function openForm() {
   $('mx').onclick = close;
   $('who').onclick = (e) => {
     const b = e.target.closest('.whochip'); if (!b) return;
-    const chips = [...$('who').querySelectorAll('.whochip')];
-    if (b.dataset.w === '') chips.forEach(c => c.classList.toggle('on', c === b));
-    else { b.classList.toggle('on'); chips[0].classList.remove('on'); }
-    if (!chips.some(c => c.classList.contains('on'))) chips[0].classList.add('on');
+    const chips = [...$('who').querySelectorAll('.whochip')], rest = chips.slice(1);
+    if (b.dataset.w === '') { const on = !b.classList.contains('on'); chips.forEach(c => c.classList.toggle('on', on)); } // כולם: מסמן או מנקה את כל הבני משפחה
+    else { b.classList.toggle('on'); chips[0].classList.toggle('on', rest.every(c => c.classList.contains('on'))); }
   };
   $('rf').onsubmit = async (x) => {
     x.preventDefault();
     const body = $('rb').value.trim();
     if (!body) return ($('rerr').textContent = 'צריך לכתוב מה הבקשה');
+    if (!$('who').querySelector('.whochip.on')) return ($('rerr').textContent = 'צריך לבחור למי לשלוח');
     $('rsave').disabled = true;
-    const { error } = await supabase.from('requests').insert({ created_by: me, status: 'open', to_users: (ids => ids.length ? ids : null)([...$('who').querySelectorAll('.whochip.on')].map(c => c.dataset.w).filter(Boolean)), body,
+    const { error } = await supabase.from('requests').insert({ created_by: me, status: 'open', to_users: (ids => ids.length && ids.length < $('who').querySelectorAll('.whochip').length - 1 ? ids : null)([...$('who').querySelectorAll('.whochip.on')].map(c => c.dataset.w).filter(Boolean)), body,
       due_date: $('rd').value || null, due_time: $('rh').value || null, points: pts });
     if (error) { $('rsave').disabled = false; return ($('rerr').textContent = 'השליחה נכשלה: ' + error.message); }
     close(); showToast('הבקשה נשלחה'); load();
