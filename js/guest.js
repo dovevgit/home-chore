@@ -4,7 +4,7 @@ import { supabase, esc, showToast } from './common.js';
 export const guestToken = () => new URLSearchParams(location.search).get('t');
 
 const KIND_PAGE = { checkers: 'checkers.html', game: 'game.html', bs: 'battleship.html', poker: 'poker.html', bg: 'backgammon.html', bj: 'blackjack.html', st: 'stratego.html' };
-const KIND_NAME = { checkers: 'דמקה', game: 'חי צומח דומם', bs: 'צוללות', poker: 'פוקר', bg: 'שש בש', bj: '21', st: 'סטרטגו' };
+const KIND_NAME = { checkers: 'דמקה', game: 'חי צומח דומם', bs: 'צוללות', poker: 'פוקר', bg: 'שש בש', bj: '21', st: 'Royal Front' };
 
 const callRpc = (token, fn, args) => supabase.rpc('guest_call', { p_token: token, p_fn: fn, p_args: args || {} });
 

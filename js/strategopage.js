@@ -16,7 +16,7 @@ function mkSplash() {
 if (gid && !GT) mkSplash();
 if (GT) { const g = await guestMode('st', GT); me = g.me; gid = g.ref; gcall = g.call; mkSplash(); }
 else {
-  const r = await initPage({ active: 'games', title: 'סטרטגו' });
+  const r = await initPage({ active: 'games', title: 'Royal Front' });
   profiles = r.profiles || [];
   me = profiles.find(p => p.id === r.session.user.id) || { id: r.session.user.id, name: '' };
 }
@@ -222,7 +222,7 @@ function gameShell() {
   <div class="st-banner" id="stStatus" aria-live="polite">טוען...</div>
   <div class="st-bar"><div class="st-count" aria-label="כלים שנותרו"><b class="st-m"><i></i><span id="cm">40</span> שלך</b><b class="st-f"><i></i><span id="cf">40</span> של היריב</b></div></div>
   <div class="st-ready" id="stReady"><span id="rMe"></span><span id="rOpp"></span></div>
-  <div class="st-board" id="stBoard" role="grid" aria-label="לוח סטרטגו"></div>
+  <div class="st-board" id="stBoard" role="grid" aria-label="לוח Royal Front"></div>
   <div class="st-btns" id="stBtns"></div>
   <div class="st-info" id="stInfo" aria-live="polite"></div>
   <div class="st-panel"><h2>כלים שיצאו מהמשחק</h2>
@@ -432,7 +432,7 @@ function renderInvite() {
   shellKey = 'invite';
   if (g.status === 'declined') { root.innerHTML = `<div class="st-banner st-end">ההזמנה בוטלה</div>${GT ? '' : '<a class="st-btn" href="stratego.html" style="text-align:center;text-decoration:none">חזרה</a>'}`; return; }
   root.innerHTML = `<div class="st-bar st-oppbar"><span>${avatar(byId[oppId], 34)}<span>${esc(nm(oppId))}</span></span></div>
-    <div class="st-banner st-them">${iA ? `ממתינים ש${esc(nm(oppId))} יאשר/תאשר` : `${esc(nm(oppId))} הזמין/ה אותך לסטרטגו`}</div>
+    <div class="st-banner st-them">${iA ? `ממתינים ש${esc(nm(oppId))} יאשר/תאשר` : `${esc(nm(oppId))} הזמין/ה אותך ל-Royal Front`}</div>
     <div class="st-btns">${iA ? '<button class="st-btn st-red" id="bCancel" type="button">בטל הזמנה</button>' : '<button class="st-btn st-go" id="bYes" type="button">בוא נשחק</button><button class="st-btn st-sec" id="bNo" type="button">לא עכשיו</button>'}</div>${RULES}`;
   bind('bCancel', () => act('st_resign', { p_game: gid }));
   bind('bYes', () => act('st_respond', { p_game: gid, p_accept: true }));
@@ -471,7 +471,7 @@ async function showList() {
   const clrAt = (() => { try { return +localStorage.getItem('clr_st') || 0; } catch (_) { return 0; } })();
   const done = mine.filter(g => g.status === 'done' && new Date(g.updated_at || g.created_at || 0).getTime() > clrAt).slice(0, 5);
   root.innerHTML = `
-    <div class="st-hero"><div class="st-herotitle">סטרטגו</div><div class="st-herosub">משחק אסטרטגיה לזוג. תפסו את הדגל של היריב!</div></div>
+    <div class="st-hero"><div class="st-herotitle">Royal Front</div><div class="st-herosub">משחק אסטרטגיה לזוג. תפסו את הדגל של היריב!</div></div>
     <div class="st-card"><h3>משחק חדש. עם מי משחקים?</h3><div class="st-pick">
       ${others.map(p => `<button class="st-pk" data-id="${p.id}" type="button" ${busyWith.has(p.id) ? 'disabled style="opacity:.4"' : ''}>${avatar(p, 52)}${esc(p.name)}</button>`).join('') || '<p>אין עוד שחקנים</p>'}
     </div></div>
